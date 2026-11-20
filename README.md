@@ -5,7 +5,8 @@ Aventura de acción para navegador de Sebastián Beltrán. Los súbditos del Rey
 | Módulo | Responsabilidad |
 |---|---|
 | index.html, style.css | Portada, manual, HUD de vida y energía, equipo, pausa y desenlaces |
-| game.js | Bucle de simulación, entrada, exploración, contacto, transición, arena, retorno, guardado |
+| engine.js | Simulación, exploración, contacto, transición, combate, botín y reaparición |
+| game.js | Entrada, bucle de pantalla, HUD, menús y guardado local |
 | art.js | Escenarios rasterizados por bioma, cámara y personajes animados en celdas de 128 × 128 |
 | learning.js | Historial de acciones, predictor N-gram con contexto y memoria compartida |
 | audio.js | Secuenciador Web Audio y muestras opcionales |
@@ -30,4 +31,10 @@ Espada de Viajero inicial, Espada de Caballero balanceada, Dagas del Viento de c
 4. Rey Mimético, audio, pruebas y despliegue en Vercel.
 
 ## Referencia de exploración
-[Mapas de Mario & Luigi: Superstar Saga para GBA](https://pixelguides.org/mario-and-luigi-superstar-saga/). Los personajes, música y escenarios de este proyecto son originales.
+[Mapas de Mario & Luigi: Superstar Saga para GBA](https://www.spriters-resource.com/game_boy_advance/mlss/asset/861/). Los personajes, música y escenarios de este proyecto son originales.
+
+
+## Jugar y verificar
+Desde la raíz, ejecutar `python -m http.server 8000` y abrir http://localhost:8000. No requiere instalación de paquetes. Con Node 22.7 o posterior, ejecutar `node --test tests/adventure.test.mjs` para verificar el recorrido, la memoria, la curación y el reinicio.
+
+WASD o flechas para caminar, J para atacar y abrir cofres cercanos, espacio para esquivar, Q para escoger arma, R para escoger objeto y E para usarlo. Esc abre la pausa. El atlas muestra las conexiones de cada región. El códice explica las predicciones y su acierto acumulado.
