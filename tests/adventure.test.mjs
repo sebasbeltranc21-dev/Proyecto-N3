@@ -124,3 +124,29 @@ test('Distinct weapon hitboxes, active dodges, and the second royal arsenal',()=
  Object.assign(g.enemy,{x:250,y:200,target:{x:300,y:200},move:'sweep'});Object.assign(g.hero,{x:290,y:200,roll:.23});
  release(g);stepHazards(g,.1);assert.equal(g.data.hp,100);
 });
+
+test('All eight opponents vary their repertoire and scouts retain individual observations',()=>{
+ const repertoires=new Set();
+ for(let zone=0;zone<4;zone++)for(const scout of [true,false]){
+  const g=new Adventure();g.data.zone=zone;g.encounterType=scout?'scout':'guardian';g.enterArena();
+  const attacks=new Set();
+  for(let n=0;n<12;n++){g.enemy.sequence=n;g.enemy.move=chooseMove(g.enemy,zone);attacks.add(g.enemy.move);}
+  assert.ok(attacks.size>=3);repertoires.add([...attacks].sort().join('/'));
+ }
+ assert.equal(repertoires.size,8);
+ const g=new Adventure();g.data.zone=1;g.encounterType='scout';g.enterArena();
+ for(let i=0;i<8;i++){g.learn('atk:0:E');g.learn('roll:E');}
+ assert.equal(g.foeMemory.samples,8);assert.equal(g.memory.samples,16);
+ const loaded=new Adventure(JSON.parse(JSON.stringify(g.snapshot())));
+ loaded.encounterType='scout';loaded.enterArena();loaded.enemy.x=loaded.hero.x+80;loaded.enemy.cool=0;
+ loaded.tick(frame,0,0);assert.equal(loaded.enemy.move,'hook');assert.ok(loaded.enemy.target.x>loaded.hero.x);
+ loaded.encounterType='guardian';loaded.enterArena();assert.equal(loaded.foeMemory.samples,0);
+});
+test('Returning blade doubles back and the marked thorns leave time to step aside',()=>{
+ const g=new Adventure();g.enterArena();const e=g.enemy;
+ Object.assign(e,{x:240,y:200,target:{x:340,y:200},move:'hook'});release(g);
+ const blade=g.hazards[0];for(let i=0;i<45;i++)stepHazards(g,frame);
+ assert.ok(blade.x>380);for(let i=0;i<42;i++)stepHazards(g,frame);assert.ok(blade.x<260);
+ e.move='bloom';release(g);g.hero.x=340;g.hero.y=250;stepHazards(g,frame);assert.equal(g.data.hp,100);
+ g.hero.y=200;stepHazards(g,frame);assert.ok(g.data.hp<100);
+});

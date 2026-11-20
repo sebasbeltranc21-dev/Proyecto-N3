@@ -15,7 +15,11 @@ function blade(g,kind,x,y,size,angle){
  const pt=(u,v)=>[Math.round(x+u*c-v*s),Math.round(y+u*s+v*c)];
  const shape=(color,points)=>poly(g,color,points.map(p=>pt(...p)));
  shape('#514439',[[-8,-2],[23,-2],[23,2],[-8,2]]);
- if(kind==='lance'){
+ if(kind==='hook'){
+ shape('#6f4660',[[0,0],[12,-9],[27,-6],[15,-3],[6,4]]);shape('#ffda81',[[1,0],[12,-8],[26,-6],[13,-5]]);
+ }else if(kind==='bloom'){
+ shape('#57874c',[[8,1],[18,-7],[20,-3],[30,-8],[24,1],[14,4]]);
+ }else if(kind==='lance'){
  shape('#564b43',[[-14,-2],[24,-2],[24,2],[-14,2]]);shape('#e1ad70',[[-14,-1],[25,-1],[25,1],[-14,1]]);
  shape('#43575d',[[18,-5],[34,0],[19,5],[22,0]]);shape('#cdf0d7',[[19,-3],[32,0],[21,1]]);
  shape('#c96658',[[16,0],[20,1],[16,8],[11,10]]);
@@ -44,6 +48,9 @@ export function heroWeapon(g,weapon,x,y,face,arena,frame){
 export function armedEnemy(g,e,z,t,pose){
  const kind=e.move||['lance','fan','slam','dash'][z],face=e.face||1,active=e.wind>0;
  let angle=active?(kind==='slam'?-1.55:kind==='sweep'?-1.22:-.50):e.release>0?.1:-.93;
+ const progress=active?1-e.wind/e.windDuration:0;
+ if(active)angle-=progress*(kind==='slam'?1.15:.78);
+ if(e.release>0)angle+=(1-e.release/.25)*1.25-.45;
  if(face<0)angle=Math.PI-angle;
  const grip=(e.scout?10:z===3?17:14)+(pose.frame===3?6:pose.frame===2?-4:0);
  blade(g,kind,pose.x+face*grip,pose.y-(e.scout?20:z===3?33:26)+(active?Math.sin(t*20):0),e.scout?.73:z===3?1.12:.89,angle);
@@ -52,7 +59,9 @@ export function paintThreats(g,game){
  const e=game.enemy;if(!e)return;
  if(e.wind>0&&e.target){
  const c=Math.floor(game.time*6)%2?'#fff2a8':'#ffac75',a=Math.atan2(e.target.y-e.y,e.target.x-e.x),kind=e.move;
- if(kind==='slam'){ring(g,e.x,e.y,32,c,3);ring(g,e.x,e.y,62,c,4);}
+ if(kind==='bloom'){ring(g,e.target.x,e.target.y,23,c,3);}
+ else if(kind==='hook'){for(let j=12;j<151;j+=10)marker(g,e.x+Math.cos(a)*j,e.y+Math.sin(a)*j,c);}
+ else if(kind==='slam'){ring(g,e.x,e.y,32,c,3);ring(g,e.x,e.y,62,c,4);}
  else if(kind==='sweep'){
  for(let i=-11;i<=11;i++){const theta=a+i*.11;marker(g,e.x+Math.cos(theta)*65,e.y+Math.sin(theta)*65,c);}
  }else{
@@ -63,7 +72,11 @@ export function paintThreats(g,game){
  }
  }
  for(const h of game.hazards){
- if(h.kind==='slam'){
+ if(h.kind==='bloom'){
+ const height=Math.round(23*Math.sin(Math.min(1,h.age/.38)*Math.PI));
+ for(const dx of [-16,-8,0,8,16])poly(g,'#537544',[[h.x+dx-3,h.y+3],[h.x+dx+3,h.y-height],[h.x+dx+4,h.y+3]]);
+ }else if(h.kind==='hook'){blade(g,'hook',h.x,h.y-4,.85,h.age*18);}
+ else if(h.kind==='slam'){
  ring(g,h.x,h.y,h.radius,'#b77f60',2);ring(g,h.x,h.y,Math.max(0,h.radius-3),'#ffe5a0',1);
  }else if(h.kind==='sweep'){
  for(let i=-9;i<10;i++){const a=h.angle+i*.13;stroke(g,'#ffda8b',h.x+Math.cos(a)*52,h.y+Math.sin(a)*52,h.x+Math.cos(a)*66,h.y+Math.sin(a)*66);}

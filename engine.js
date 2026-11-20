@@ -1,6 +1,6 @@
 import {EchoMemory,sector,directions,habit} from './learning.js';
 import {WORLD,worlds,canWalk,safePosition,interaction,roomNames} from './world.js';
-import {health,moves,chooseMove,release,stepHazards} from './arsenal.js';
+import {health,moves,chooseMove,release,stepHazards,strike} from './arsenal.js';
 export const weapons=[
  {name:'Espada de Viajero',short:'Viajero',damage:15,reach:56,delay:.39,cost:8},
  {name:'Espada de Caballero',short:'Caballero',damage:22,reach:61,delay:.46,cost:10},
@@ -16,6 +16,7 @@ function fresh(){return {mapRevision:2,inside:false,scouts:[],services:[],zone:0
 export class Adventure {
  constructor(save,onEvent=()=>{}){
    this.data=Object.assign(fresh(),save?.data||{});this.memory=new EchoMemory(save?.memory);this.emit=onEvent;
+   this.foeMemories=Object.fromEntries(Object.entries(save?.foeMemories||{}).map(([key,value])=>[key,new EchoMemory(value)]));
    const d=this.data;
    if(save?.data && save.data.mapRevision!==2){
      const p=safePosition(d.zone,clamp(d.x*2.1,38,WORLD.width-38),clamp(d.y*1.54,80,WORLD.height-25));
@@ -64,7 +65,7 @@ export class Adventure {
      this.emit('save');this.emit('dialog',{name:['Alma','Sauce','Elías','Bruno'][d.zone],line:lines[d.zone]});
    }
  }
- snapshot(){return {version:1,data:{...this.data,bag:[...this.data.bag],unlocked:[...this.data.unlocked],cleared:[...this.data.cleared],opened:[...this.data.opened]},memory:this.memory.snapshot()};}
+ snapshot(){return {version:1,data:{...this.data,bag:[...this.data.bag],unlocked:[...this.data.unlocked],cleared:[...this.data.cleared],opened:[...this.data.opened]},foeMemories:Object.fromEntries(Object.entries(this.foeMemories).map(([key,m])=>[key,m.snapshot()])),memory:this.memory.snapshot()};}
  notice(s){this.emit('notice',s);}
  unlock(i){if(!this.data.unlocked.includes(i)){this.data.unlocked.push(i);this.data.weapon=i;return weapons[i].name;}return '';}
  cycleWeapon(){const d=this.data;d.weapon=d.unlocked[(d.unlocked.indexOf(d.weapon)+1)%d.unlocked.length];this.emit('sound','click');this.notice(weapons[d.weapon].name);}
@@ -93,7 +94,15 @@ export class Adventure {
    this.emit('sound','hit');
    if(e.hp<=0)this.winBattle();
  }
- learn(action){if(this.mode==='arena')this.memory.observe(action,dist(this.hero,this.enemy),100*this.data.hp/this.maxHp);}
+ learn(action){
+   if(this.mode!=='arena')return;
+   const range=dist(this.hero,this.enemy),hp=100*this.data.hp/this.maxHp;
+   this.memory.observe(action,range,hp);
+   // Scouts specialize in two cues; guardians remember full action sequences.
+   const cues=[['roll','atk'],['roll','heal'],['atk','heal'],['roll','atk']];
+   const kind=action.split(':')[0];
+   if(!this.enemy.scout||cues[this.data.zone].includes(kind))this.foeMemory.observe(action,range,hp);
+ }
  openChest(){
    const d=this.data;d.opened.push(d.zone);const loot=this.unlock([1,2,3,4][d.zone]);
    d.bag[0]+=2;d.bag[(d.zone+1)%5]++;this.emit('sound','loot');this.notice((loot?loot+' · ':'')+'Fruta ×2');this.emit('save');
@@ -118,7 +127,8 @@ export class Adventure {
  enterArena(){
    const d=this.data;this.mode='arena';this.hero.x=184;this.hero.y=203;this.hero.dx=1;this.hero.dy=0;this.hero.roll=0;this.face=1;
    const scout=this.encounterType==='scout',max=scout?Math.round(health[d.zone]*.34):health[d.zone];this.hazards=[];this.enemy={x:445,y:203,hp:max,max,scout,sequence:0,release:0,move:null,cool:.58,wind:0,guard:'',stun:0,recovery:0,hurt:0,read:'Reuniendo recuerdos',face:-1,walk:false};
-   this.memory.recent=[];this.emit('arena');this.notice(d.zone===3?'El Rey heredó '+this.memory.samples+' recuerdos':'¡Encuentro! J ataca · Espacio rueda');
+   this.foeMemory=this.foeMemories[d.zone+'-'+this.encounterType] ||= new EchoMemory();
+   this.foeMemory.recent=[];this.memory.recent=[];this.emit('arena');this.notice(d.zone===3?'El Rey heredó '+this.memory.samples+' recuerdos':'¡Encuentro! J ataca · Espacio rueda');
  }
  winBattle(){
    const d=this.data;const scout=this.enemy.scout;this.enemy=null;this.hazards=[];
@@ -171,22 +181,30 @@ export class Adventure {
    const h=this.hero,e=this.enemy,boss=this.data.zone===3;
    stepHazards(this,dt);if(this.mode!=='arena')return;
    e.hurt=Math.max(0,e.hurt-dt);e.release=Math.max(0,e.release-dt);e.walk=false;
-   if(e.stun>0){e.stun-=dt;return;}
+   if(e.stun>0){e.stun-=dt;e.lunge=null;return;}
+   if(e.lunge){
+     const step=Math.min(550*dt,e.lunge.distance);this.approach(e,e.lunge.target,step);e.lunge.distance-=step;
+     if(dist(e,h)<30)strike(this,e.lunge.damage);
+     if(e.lunge.distance<=0||dist(e,e.lunge.target)<1)e.lunge=null;
+     return;
+   }
    if(e.recovery>0){e.recovery-=dt;return;}
    if(e.wind>0){e.wind-=dt;if(e.wind<=0)release(this);return;}
    e.face=h.x>=e.x?1:-1;e.cool-=dt;
-   const range=dist(h,e),next=chooseMove(e,this.data.zone),attack=moves[next];
+   const range=dist(h,e),hp=100*this.data.hp/this.maxHp;
+   let guess=this.foeMemory.predict(range,hp);
+   if(!guess.action&&boss&&!e.scout)guess=this.memory.predict(range,hp);
+   const token=!h.smoke&&guess.confidence>=(boss?.48:.60)?guess.action:'';
+   const next=chooseMove(e,this.data.zone,token),attack=moves[next];
    if(range>Math.min(88,attack.range-12)){this.approach(e,h,(boss?90:68)*dt);e.walk=true;}
    if(e.cool>0||range>attack.range)return;
    e.move=next;
-   const guess=this.memory.predict(range,100*this.data.hp/this.maxHp);
-   const token=!h.smoke&&guess.confidence>=(boss?.48:.60)?guess.action:'';
    e.guard=token.startsWith('atk:')?token:'';
    let tx=h.x,ty=h.y;
    if(token.startsWith('roll:')){const [x,y]=directions[token.slice(5)];tx+=x*(boss?50:32);ty+=y*(boss?50:32);}
    if(h.smoke>0){tx=e.x-36*e.face;ty=e.y-12;}
    e.target={x:clamp(tx,23,617),y:clamp(ty,133,293)};
-   e.wind=attack.wind*(token==='heal'?.77:1);
+   e.windDuration=attack.wind*(token==='heal'?.77:1);e.wind=e.windDuration;
    const message=h.smoke>0?'Predicción velada':token?habit(token)+' · '+Math.round(guess.confidence*100)+'%':'Observando…';
    if(e.read!==message&&token)this.emit('sound','adapt');e.read=message;
  }

@@ -185,7 +185,7 @@ function hud(){
  if($('region').textContent!==region)$('region').textContent=region;
  $('hp').style.width=(100*d.hp/game.maxHp)+'%';$('sp').style.width=game.energy+'%';$('enemyHud').hidden=!e;
  $('lifeText').textContent=d.hp+' / '+game.maxHp;
- if(e){$('enemyName').textContent=(e.scout?scoutNames[d.zone]:enemyNames[d.zone])+' · '+Math.max(0,e.hp)+'/'+e.max; $('enemyHP').style.width=100*Math.max(0,e.hp/e.max)+'%';$('prediction').textContent=game.memory.samples+' recuerdos · '+(attackCaption(e)?attackCaption(e)+' · ':'')+e.read;}
+ if(e){$('enemyName').textContent=(e.scout?scoutNames[d.zone]:enemyNames[d.zone])+' · '+Math.max(0,e.hp)+'/'+e.max; $('enemyHP').style.width=100*Math.max(0,e.hp/e.max)+'%';$('prediction').textContent=(d.zone===3&&!e.scout?game.memory:game.foeMemory).samples+' recuerdos · '+(attackCaption(e)?attackCaption(e)+' · ':'')+e.read;}
  const key=[d.weapon,d.item,d.bag[d.item]].join('/');
  if(key!==icons){icons=key;emblem($('weaponIcon'),'weapon',d.weapon);emblem($('itemIcon'),'item',d.item);$('weaponName').textContent=weapons[d.weapon].short;$('itemName').textContent=items[d.item]+' ×'+d.bag[d.item];}
  const msg=game.time<messageUntil?message:'';if($('toast').textContent!==msg)$('toast').textContent=msg;

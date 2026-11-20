@@ -5,13 +5,32 @@ export const moves={
  sweep:{name:'Sable en arco',wind:.52,range:68,damage:16},
  fan:{name:'Abanico de cuchillas',wind:.82,range:265,damage:13},
  slam:{name:'Martillo sísmico',wind:.94,range:113,damage:22},
+ bloom:{name:'Brote de espinas',wind:.86,range:215,damage:16},
+ hook:{name:'Hoja de retorno',wind:.70,range:198,damage:14},
  dash:{name:'Estocada real',wind:.55,range:132,damage:18}
 };
-const lists=[['lance','sweep'],['fan','dash','sweep'],['slam','lance','sweep'],['dash','lance','slam','sweep']];
-export function chooseMove(enemy,z){
- const cycle=z===3&&!enemy.scout&&enemy.hp<=enemy.max/2?['fan','dash','slam','lance','sweep']:lists[z];
- return cycle[enemy.sequence%cycle.length];
-}
+
+ // Each row is one opponent's repertoire and responses to dodge, healing and melee.
+ const styles=[
+  {cycle:['lance','sweep','dash'],counter:['lance','dash','sweep']},
+  {cycle:['bloom','sweep','lance'],counter:['bloom','lance','sweep']},
+  {cycle:['fan','hook','dash'],counter:['hook','dash','fan']},
+  {cycle:['hook','fan','bloom'],counter:['fan','hook','bloom']},
+  {cycle:['lance','slam','bloom'],counter:['bloom','lance','slam']},
+  {cycle:['slam','bloom','sweep'],counter:['bloom','bloom','slam']},
+  {cycle:['dash','sweep','hook'],counter:['hook','dash','sweep']},
+  {cycle:['dash','lance','slam','sweep'],counter:['lance','dash','slam']}
+ ];
+ export function chooseMove(enemy,z,token=''){
+  const style=styles[z*2+(enemy.scout?0:1)];
+  const royal=z===3&&!enemy.scout&&enemy.hp<=enemy.max/2;
+  const cycle=royal?['fan','dash','slam','lance','sweep','hook']:style.cycle;
+  const response=style.counter[token.startsWith('roll:')?0:token==='heal'?1:2];
+  if(token && enemy.sequence%3!==2 && enemy.move!==response)return response;
+  let index=enemy.sequence%cycle.length;
+  if(cycle[index]===enemy.move)index=(index+1)%cycle.length;
+  return cycle[index];
+ }
 const span=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export function strike(game,damage){
  const h=game.hero;
@@ -24,7 +43,11 @@ export function release(game){
  const e=game.enemy,kind=e.move||'dash',d=moves[kind],target=e.target,h=game.hero;
  const angle=Math.atan2(target.y-e.y,target.x-e.x);
  const damage=e.scout?Math.round(d.damage*.7):d.damage+(game.data.zone===3?3:0);
- if(kind==='lance'||kind==='fan'){
+ if(kind==='bloom'){
+  game.hazards.push({kind,x:target.x,y:target.y,age:0,life:.38,damage});
+ }else if(kind==='hook'){
+  game.hazards.push({kind,x:e.x,y:e.y,originX:e.x,originY:e.y,angle,speed:310,age:0,life:1.5,damage});
+ }else if(kind==='lance'||kind==='fan'){
   const offsets=kind==='lance'?[0]:[-.32,0,.32];const speed=kind==='lance'?200:145;
   for(const off of offsets)game.hazards.push({kind,x:e.x,y:e.y,angle:angle+off,speed,damage,age:0,life:2.5});
  }else if(kind==='slam'){
@@ -32,7 +55,8 @@ export function release(game){
  }else if(kind==='sweep'){
   game.hazards.push({kind,x:e.x,y:e.y,angle,age:0,life:.24,damage});
  }else{
-  game.approach(e,target,96);if(span(e,h)<38)strike(game,damage);
+  e.lunge={target:{...target},distance:96,damage};
+  if(span(e,h)<30)strike(game,damage);
  }
  e.release=.25;e.cool=e.scout?.85:.45;e.recovery=kind==='slam'?.85:.54;e.sequence++;
  game.emit('sound',kind==='slam'?'hit':'attack');
@@ -43,7 +67,12 @@ export function stepHazards(game,dt){
   if(a.life<=0)continue;
   a.age+=dt;a.life-=dt;
   let hit=false;
-  if(a.kind==='slam'){a.radius=a.age*118;hit=Math.abs(span(h,a)-a.radius)<7;}
+  if(a.kind==='bloom'){hit=span(h,a)<24;}
+  else if(a.kind==='hook'){
+   const travel=150*Math.sin(Math.PI*Math.min(1,a.age/1.5));
+   a.x=a.originX+travel*Math.cos(a.angle);a.y=a.originY+travel*Math.sin(a.angle);
+   hit=span(h,a)<12;
+  }else if(a.kind==='slam'){a.radius=a.age*118;hit=Math.abs(span(h,a)-a.radius)<7;}
   else if(a.kind==='sweep'){
    const theta=Math.atan2(h.y-a.y,h.x-a.x)-a.angle;
    hit=span(h,a)<70&&Math.cos(theta)>.28;

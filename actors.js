@@ -47,7 +47,13 @@ export function drawOpponent(g,unit,z,t,arena,scout,heroX){
  const set=arena?(scout?2:3):(scout?0:1);
  const bob=flying?Math.round(2+Math.sin(t*4)*2):0;
  const recoil=e?.hurt>0?Math.round(e.hurt*16)*-face:0;
- const x=unit.x+recoil,y=unit.y-bob;
+ const charge=e?.wind>0?1-e.wind/e.windDuration:0;
+ const swing=e?.release>0?Math.sin(Math.PI*e.release/.25):0;
+ const crouch=e?.move==='slam'?5:2;
+ const lift=flying?Math.round(charge*6+swing*3):0;
+ const x=unit.x+recoil+face*Math.round(swing*5-charge*3);
+ const y=unit.y-bob+Math.round(charge*crouch)-lift;
+ if(e?.lunge)for(let i=1;i<=3;i++)rect(g,'#dfdf955e',x-face*(12+i*5),y-8-i*3,5,2);
  shadow(g,unit.x,unit.y,scout?9:z===3?18:13);
  nativeActor(g,'foes',set*16+z*4+frame,x,y,face);
  if(arena)armedEnemy(g,e,z,t,{x,y,frame});
