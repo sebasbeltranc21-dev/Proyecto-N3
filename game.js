@@ -1,23 +1,58 @@
 import {Adventure,weapons,items,exits} from './engine.js';
-import {drawWorld,drawMinimap,arenaScenery} from './village-art.js';
+import {drawWorld,drawMinimap,drawArena} from './village-art.js';
 import {chamberNames,roomNames,guardianPlaces} from './world.js';
 import {scoutNames} from './arsenal.js';
-import {armedEnemy,paintThreats,attackCaption} from './weapon-art.js';
-import {loadAtlas,stamp} from './atlas.js';
+import {paintThreats,attackCaption} from './weapon-art.js';
+import {drawHero,drawOpponent} from './actors.js';
+import {conversation,speakerPosition,placeBubble} from './speech.js';
+import {loadAtlas,tile,stamp} from './atlas.js';
 import {ChipAudio} from './audio.js';
 import {habit} from './learning.js';
-import {background,actor,sign,chest,emblem,label,kinds,enemyNames,regions} from './art.js';
+import {emblem,label,enemyNames,regions} from './art.js';
 
 const $=id=>document.getElementById(id);
-const scene=$('scene'),g=scene.getContext('2d'),modal=$('modal');
+const scene=$('scene'),modal=$('modal');
+const logical=Object.assign(document.createElement('canvas'),{width:640,height:336});
+const g=logical.getContext('2d',{alpha:false}),display=scene.getContext('2d',{alpha:false});
+function resizeDisplay(){
+ const box=scene.getBoundingClientRect(),ratio=window.devicePixelRatio||1;
+ const width=Math.max(1,Math.round(box.width*ratio)),height=Math.max(1,Math.round(box.height*ratio));
+ if(scene.width!==width||scene.height!==height){scene.width=width;scene.height=height;}
+ display.imageSmoothingEnabled=false;
+ display.drawImage(logical,0,0,scene.width,scene.height);
+}
+new ResizeObserver(resizeDisplay).observe(scene);
+window.addEventListener('resize',resizeDisplay);
 const slot='isla-ecos-adventure-v1',soundSlot='isla-ecos-vol-v1';
 const audio=new ChipAudio(),keys=new Set(),effects=[];
-void Promise.allSettled([loadAtlas('places','assets/poblados.png'),loadAtlas('people','assets/habitantes.png')]).then(()=>{
- [...$('zones').children].forEach((card,i)=>{
+const graphics=[
+ ['places','poblados.png',4,3],['hero','viajero.png',4,8],['residents','vecinos.png',4,8],
+ ['foes','guardianes.png',4,16],['tiles','terreno.png',4,4],['props','objetos.png',4,4],
+ ['arenas','arenas.webp',2,2],['rooms','interiores.webp',2,2]
+];
+let artReady=false,speech=null;
+async function prepareGraphics(){
+ $('start').disabled=true;$('startLabel').textContent='Cargando la isla…';
+ try{
+  await Promise.all(graphics.map(([id,path,columns,rows])=>loadAtlas(id,'assets/'+path,columns,rows)));
+  [...$('zones').children].forEach((card,i)=>{
    const c=card.querySelector('canvas'),ctx=c.getContext('2d');
-   emblem(c,'region',i);stamp(ctx,'places',[0,1,6,7][i],29,43,42);
- });
-});
+   tile(ctx,'arenas',i,0,0,c.width,c.height);stamp(ctx,'places',[0,1,6,7][i],29,43,38);
+  });
+  artReady=true;$('startLabel').textContent=saved?(saved.data.won?'Ver mi aventura':'Continuar aventura'):'Comenzar aventura';
+ }catch{$('startLabel').textContent='Volver a cargar los gráficos';}
+ $('start').disabled=false;
+}
+function clearSpeech(){speech=null;$('speech').hidden=true;}
+function speak(words){
+ speech=conversation(game,words);
+ $('speaker').textContent=words.name;$('spoken').textContent=words.line;
+ $('speech').hidden=false;
+}
+function followSpeech(){
+ if(!speech)return;
+ const point=speakerPosition(game,speech);if(point)placeBubble($('speech'),point);else clearSpeech();
+}
 let game,started=false,paused=false,modalKind='',message='',messageUntil=0,flash=0,last=0,step=0,lastSave=0;
 function load(){try{const s=JSON.parse(localStorage.getItem(slot));return s?.version===1?s:null;}catch{return null;}}
 function save(){try{if(game&&started)localStorage.setItem(slot,JSON.stringify(game.snapshot()));}catch{$('saveState').textContent='Guardado no disponible';}}
@@ -27,7 +62,7 @@ function event(type,value){
  if(type==='notice')tell(value);
  if(type==='effect'){effects.push({...value,age:0});flash=.06;}
  if(type==='save'){save();updateCards();}
- if(type==='dialog')show('villager','HABITANTES DE LA ISLA',value.name,'<p>'+value.line+'</p>',[button('Seguir explorando',close)]);
+ if(type==='dialog')speak(value);
  if(type==='arena'||type==='zone')updateCards();
  if(type==='zone')tell(regions[game.data.zone]);
  if(type==='won')ending(true);
@@ -52,7 +87,7 @@ function updateCards(){
 }
 for(let i=0;i<4;i++){
  const b=document.createElement('button');b.className='zoneCard';b.innerHTML='<canvas width="58" height="44"></canvas><span><small></small><b></b></span>';
- b.querySelector('b').textContent=regions[i];emblem(b.firstChild,'region',i);b.onclick=()=>show('region','ATLAS DE LA ISLA',regions[i],'<p>'+descriptions[i]+'</p><p>'+chamberNames[i]+' · '+roomNames[i]+' · '+guardianPlaces[i]+'</p><p>Al oeste · '+regions[exits[i][0]]+'<br>Al este · '+regions[exits[i][1]]+'</p>');
+ b.querySelector('b').textContent=regions[i];b.onclick=()=>show('region','ATLAS DE LA ISLA',regions[i],'<p>'+descriptions[i]+'</p><p>'+chamberNames[i]+' · '+roomNames[i]+' · '+guardianPlaces[i]+'</p><p>Al oeste · '+regions[exits[i][0]]+'<br>Al este · '+regions[exits[i][1]]+'</p>');
  $('zones').append(b);
 }
 updateCards();
@@ -82,6 +117,7 @@ function ending(won){
 }
 $('close').onclick=close;modal.addEventListener('cancel',e=>{e.preventDefault();if(!['won','lost'].includes(modalKind))close();});
 $('start').onclick=()=>{
+ if(!artReady){void prepareGraphics();return;}
  audio.start();started=true;$('cover').hidden=true;$('hud').hidden=false;scene.focus();
  $('touch').hidden=!matchMedia('(pointer: coarse), (max-width: 760px)').matches;
  if(game.data.won){game.mode='won';ending(true);}else if(game.data.hp<=0){game.retry();}else tell('J para hablar o entrar · Cruza el puente hacia el guardián');
@@ -94,6 +130,7 @@ const actions={KeyJ:'attack',Space:'roll',KeyQ:'weapon',KeyR:'select',KeyE:'item
 const movement=['KeyW','KeyA','KeyS','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'];
 function engage(k){
  if(!started||paused)return;keys.add(k);
+ if(k==='KeyJ'&&speech){clearSpeech();return;}
  if(actions[k])game.act(actions[k]);
 }
 window.addEventListener('keydown',e=>{
@@ -120,32 +157,24 @@ function tintRing(x,y,rx,ry,color){
 function draw(dt){
  const {data:d,hero:h,enemy:e}=game,z=d.zone,t=game.time,arena=game.mode==='arena'||game.mode==='lost';
  const hero=()=>{
-   const pose=h.roll>0?'roll':h.hurt>0?'hurt':h.heal>0?'heal':h.attack>0?'attack':game.walk?'walk':'idle';
    if(h.shield>0||h.haste>0)tintRing(h.x,h.y,21,7,h.shield>0?'#aff3ed':'#fadc87');
    if(h.smoke>0)for(let j=0;j<12;j++){g.fillStyle='#d1cbd0aa';g.fillRect(Math.round(h.x+Math.sin(t*3+j*8)*19),Math.round(h.y-6-(t*24+j*7)%37),5,4);}
-   actor(g,'hero',h.x,h.y,pose,t,game.face,arena?79:62,d.weapon);
+   drawHero(g,game,arena);
    if(h.attack>0&&arena){
      const side=game.face;for(let j=0;j<14;j++){const a=-1.1+j*.135;g.fillStyle=j<5?'#f3c579':'#fff1bb';g.fillRect(Math.round(h.x+Math.cos(a)*weapons[d.weapon].reach*.73*side),Math.round(h.y-22+Math.sin(a)*19),2,3);}
    }
    if(h.heal>0)label(g,'✚',h.x,h.y-56,'#b9f3ac');
  };
  const foe=(unit,scout=false)=>{
-   const pose=e?.hurt>0?'hurt':e?.wind>0||e?.release>0?'attack':e?.walk||!arena?'walk':'idle';
-   const size=(z===3?(arena?108:79):arena?84:65)*(scout?.75:1);
-   const facing=e?.face??(h.x<unit.x?-1:1);
-   const height=Math.round(size*(scout?.64:.77));
-   const bob=pose==='walk'?Math.abs(Math.sin(t*7))*3:z===1?Math.sin(t*4)*3:Math.sin(t*3)*1.2;
-   const recoil=e?.hurt>0?-3*facing:0,lean=e?.release>0?5*facing:0;
-   if(!stamp(g,'people',4+z,unit.x+recoil+lean,unit.y-Math.round(bob),height,facing,height+(pose==='attack'?-3:0)))
-     actor(g,kinds[z],unit.x,unit.y,pose,t,facing,size,z===3?4:0);
-   if(arena)armedEnemy(g,e,z,t);
+   drawOpponent(g,unit,z,t,arena,scout,h.x);
+   const size=z===3?83:65;
    if(e?.stun>0)label(g,'✦ ✦',unit.x,unit.y-55,'#ffe58d');
    if(!arena)label(g,scout?'•':'◆',unit.x,unit.y-size*.78+Math.round(Math.sin(t*3)*2),scout?'#f2b69d':'#ffee99',10);
  };
  if(arena&&e){
-   background(g,z,true,h.x);arenaScenery(g,z,t);paintThreats(g,game);
+   drawArena(g,z,t);paintThreats(g,game);
    if(h.y<=e.y){hero();foe(e,e.scout);}else{foe(e,e.scout);hero();}
- }else{drawWorld(g,game,hero,foe);drawMinimap(g,game);}
+ }else{drawWorld(g,game,hero,foe,speech);drawMinimap(g,game);}
  for(let i=effects.length-1;i>=0;i--){const f=effects[i];f.age+=dt;label(g,f.text,f.x,f.y-f.age*24,'#fff0ac',10);if(f.age>.65)effects.splice(i,1);}
  if(flash>0){g.fillStyle='#ffeeb018';g.fillRect(0,0,640,336);flash-=dt;}
  if(game.mode==='transition'){g.fillStyle='#273048';const w=Math.ceil((.54-game.fade)/.54*640);for(let y=0;y<336;y+=12)g.fillRect(y%24===0?0:640-w,y,w,12);}
@@ -167,9 +196,12 @@ function frame(now){
    const dx=held('ArrowRight','KeyD')-held('ArrowLeft','KeyA'),dy=held('ArrowDown','KeyS')-held('ArrowUp','KeyW');
    game.tick(dt,dx,dy);if(keys.has('KeyJ')&&game.mode==='arena')game.act('attack');
    if(game.walk&&game.time-step>.37){audio.play('step');step=game.time;}
-   audio.track(game.mode!=='arena'?'map':game.data.zone===3?'king':'arena');audio.tick();draw(dt);hud();
+   audio.track(game.mode!=='arena'?'map':game.data.zone===3?'king':'arena');audio.tick();followSpeech();draw(dt);
+   display.drawImage(logical,0,0,scene.width,scene.height);hud();
    if(game.time-lastSave>3){save();lastSave=game.time;}if(lastSave>game.time)lastSave=0;
  }
  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+void prepareGraphics();

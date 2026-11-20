@@ -4,8 +4,11 @@ function stroke(g,color,x,y,u,v,size=1){
  const n=Math.max(1,Math.ceil(Math.hypot(u-x,v-y)));
  for(let i=0;i<=n;i++)rect(g,color,x+(u-x)*i/n,y+(v-y)*i/n,size,size);
 }
+function marker(g,x,y,color,w=3){
+ rect(g,'#4a3049',x-1,y-1,w+2,4);rect(g,color,x,y,w,2);
+}
 function ring(g,x,y,r,color,skip=1){
- for(let j=0;j<100;j+=skip){const a=j*Math.PI/50;rect(g,color,x+Math.cos(a)*r,y+Math.sin(a)*r,2,2);}
+ for(let j=0;j<100;j+=skip){const a=j*Math.PI/50;marker(g,x+Math.cos(a)*r,y+Math.sin(a)*r,color,2);}
 }
 function blade(g,kind,x,y,size,angle){
  const c=Math.cos(angle)*size,s=Math.sin(angle)*size;
@@ -28,23 +31,34 @@ function blade(g,kind,x,y,size,angle){
  shape('#dfac60',[[-2,-6],[2,-6],[3,7],[-1,7]]);
  }
 }
-export function armedEnemy(g,e,z,t){
+export function heroWeapon(g,weapon,x,y,face,arena,frame){
+ const attack=frame>=4&&frame<=7;
+ const gripX=attack?[3,12,17,10][frame-4]:7;
+ const gripY=attack?[24,24,20,19][frame-4]:20;
+ const factor=arena?1.25:1;
+ const kind=weapon===3?'slam':weapon===4?'dash':'sweep';
+ const angle=attack?[-1.7,-.85,.16,.55][frame-4]:-.87;
+ blade(g,kind,x+face*gripX*factor,y-gripY*factor,(weapon===2?.48:.68)*factor,face<0?Math.PI-angle:angle);
+ if(weapon===2&&attack)blade(g,'sweep',x-4*face,y-15*factor,.36,face<0?Math.PI+.5:-.5);
+}
+export function armedEnemy(g,e,z,t,pose){
  const kind=e.move||['lance','fan','slam','dash'][z],face=e.face||1,active=e.wind>0;
  let angle=active?(kind==='slam'?-1.55:kind==='sweep'?-1.22:-.50):e.release>0?.1:-.93;
  if(face<0)angle=Math.PI-angle;
- blade(g,kind,e.x+face*(z===3?16:11),e.y-(z===3?31:22)+(active?Math.sin(t*20):0),e.scout?.73:z===3?1.18:1,angle);
+ const grip=(e.scout?10:z===3?17:14)+(pose.frame===3?6:pose.frame===2?-4:0);
+ blade(g,kind,pose.x+face*grip,pose.y-(e.scout?20:z===3?33:26)+(active?Math.sin(t*20):0),e.scout?.73:z===3?1.12:.89,angle);
 }
 export function paintThreats(g,game){
  const e=game.enemy;if(!e)return;
  if(e.wind>0&&e.target){
- const c=Math.floor(game.time*9)%2?'#fff0a7':'#e99770',a=Math.atan2(e.target.y-e.y,e.target.x-e.x),kind=e.move;
+ const c=Math.floor(game.time*6)%2?'#fff2a8':'#ffac75',a=Math.atan2(e.target.y-e.y,e.target.x-e.x),kind=e.move;
  if(kind==='slam'){ring(g,e.x,e.y,32,c,3);ring(g,e.x,e.y,62,c,4);}
  else if(kind==='sweep'){
- for(let i=-11;i<=11;i++){const theta=a+i*.11;rect(g,c,e.x+Math.cos(theta)*65,e.y+Math.sin(theta)*65,3,2);}
+ for(let i=-11;i<=11;i++){const theta=a+i*.11;marker(g,e.x+Math.cos(theta)*65,e.y+Math.sin(theta)*65,c);}
  }else{
  for(const offset of kind==='fan'?[-.32,0,.32]:[0]){
  const reach=kind==='dash'?99:190;
- for(let j=14;j<reach;j+=9)rect(g,c,e.x+Math.cos(a+offset)*j,e.y+Math.sin(a+offset)*j,3,2);
+ for(let j=14;j<reach;j+=9)marker(g,e.x+Math.cos(a+offset)*j,e.y+Math.sin(a+offset)*j,c);
  }
  }
  }

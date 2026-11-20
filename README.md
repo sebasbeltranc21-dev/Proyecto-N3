@@ -7,7 +7,7 @@ Aventura de acción para navegador de Sebastián Beltrán. Los súbditos del Rey
 | index.html, style.css | Portada, manual, HUD de vida y energía, equipo, pausa y desenlaces |
 | engine.js | Simulación, exploración, contacto, transición, combate, botín y reaparición |
 | game.js | Entrada, bucle de pantalla, HUD, menús y guardado local |
-| art.js | Escenarios rasterizados por bioma, cámara y personajes animados en celdas de 128 × 128 |
+| art.js | Dibujo pixelado del HUD, iconos e indicadores |
 | learning.js | Historial de acciones, predictor N-gram con contexto y memoria compartida |
 | audio.js | Secuenciador Web Audio y muestras opcionales |
 | assets/ | Ilustración de portada y tipografía pixelada |
@@ -48,3 +48,7 @@ El archivo world.js describe geometría, colisiones y lugares de interés. villa
 ### Referencias de diseño
 - [Beanbean Castle Town](https://www.mariowiki.com/Beanbean_Castle_Town) inspiró los establecimientos con funciones diferentes y sus habitantes.
 - [Chuck Guy](https://www.mariowiki.com/Chuck_Guy) sirvió de referencia para comunicar un golpe mediante la postura y el arma del enemigo.
+## Presentación de personajes y escenarios
+El viajero usa poses de marcha, golpe, rodar, daño, respiración y curación. Los residentes tienen poses para caminar y hablar. Los guardianes preparan su arma y descargan el ataque con dibujos diferentes. actors.js selecciona el fotograma a partir del estado real de la simulación. Los atlas contienen fotogramas ya preparados al tamaño de exploración y de combate. El último escalado usa el tamaño físico de la pantalla y vecino más cercano.
+
+Las bifurcaciones comparten una máscara de suelo con texturas por bioma. Los cuatro interiores y las cuatro arenas disponen de fondos completos. speech.js sigue al interlocutor y coloca el globo sobre su cabeza. J cierra el globo, y alejarse también lo oculta.

@@ -52,7 +52,7 @@ export class Adventure {
      ];
      if(d.zone===0)d.hp=this.maxHp;
      if(!used){if(d.zone===1)d.bag[0]+=3;if(d.zone===3)d.bag[1]++;d.services.push(d.zone);}
-     this.emit('save');this.emit('dialog',{name:roomNames[d.zone],line:lines[d.zone]});
+     this.emit('save');this.emit('dialog',{name:['Alma','Sauce','Elías','Bruno'][d.zone],line:lines[d.zone]});
    }
  }
  snapshot(){return {version:1,data:{...this.data,bag:[...this.data.bag],unlocked:[...this.data.unlocked],cleared:[...this.data.cleared],opened:[...this.data.opened]},memory:this.memory.snapshot()};}
