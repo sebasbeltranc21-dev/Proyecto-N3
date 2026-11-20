@@ -127,7 +127,7 @@ function sprite(kind,pose,frame,weapon){
   for(const [x,y] of cells)rect(g,INK,x-2,y-2,8,8);
   for(const [x,y,v] of cells)rect(g,pal[v],x,y,4,4);
   if(kind==='sprout'){oval(g,'#79b35d',-9,-46,8,3);rect(g,'#dbab5c',-1,-5,6,3);}
-  if(kind==='hero'||kind==='king'){
+  if(kind==='hero'){
     const swing=pose==='attack',hx=swing?22:16,hy=pose==='heal'?-46:-31;
     if(pose==='heal'){oval(g,'#df6354',hx+3,hy-5,7,7);rect(g,'#94ce70',hx+2,hy-14,6,4);}
     else if(swing&&weapon===3){rect(g,'#714e38',hx,hy,30,5);rect(g,INK,hx+22,hy-10,16,24);rect(g,'#8c9fa6',hx+24,hy-8,12,18);}
@@ -175,3 +175,5 @@ export function emblem(canvas,type,index=0){
     else {oval(g,INK,12,14,7,7);oval(g,c,12,14,6,6);rect(g,'#fff0bd',8,11,3,2);rect(g,index===0?'#77bb67':'#b28c58',11,4,6,4);}
   }g.restore();
 }
+
+export {tree,pillar,tower,oval,poly,rect,rng};

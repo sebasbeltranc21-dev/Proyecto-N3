@@ -38,3 +38,13 @@ Espada de Viajero inicial, Espada de Caballero balanceada, Dagas del Viento de c
 Desde la raíz, ejecutar `python -m http.server 8000` y abrir http://localhost:8000. No requiere instalación de paquetes. Con Node 22.7 o posterior, ejecutar `node --test tests/adventure.test.mjs` para verificar el recorrido, la memoria, la curación y el reinicio.
 
 WASD o flechas para caminar, J para atacar y abrir cofres cercanos, espacio para esquivar, Q para escoger arma, R para escoger objeto y E para usarlo. Esc abre la pausa. El atlas muestra las conexiones de cada región. El códice explica las predicciones y su acierto acumulado.
+## La isla habitada
+Cada región tiene un terreno de 1344 × 608 con cámara libre de seguimiento, dos cruces de río, caminos secundarios, tres habitantes, una patrulla opcional y dos hallazgos. El indicador J permite hablar, entrar al edificio señalado, usar su servicio, examinar objetos y abrir cofres. La posada cura, la botica entrega fruta, el archivo enseña a esquivar la onda y la armería repara un escudo. El minimapa indica el héroe, el edificio principal, el cofre y el guardián.
+
+Bramble tiene 100 PV, Lumbre 165, Talos 250 y el Rey 460. Cada uno de los tres sellos aumenta en 15 la vida máxima del viajero. Las patrullas opcionales entregan suministros y transmiten sus observaciones al mismo predictor. Las jabalinas siguen una línea, las cuchillas se abren en abanico, el sable barre un sector y el martillo emite una onda expansiva. El Rey cambia su repertorio al llegar a media vida.
+
+El archivo world.js describe geometría, colisiones y lugares de interés. village-art.js dibuja los pueblos y sus interiores, atlas.js carga las ilustraciones originales y arsenal.js simula proyectiles, áreas de impacto y patrones de ataque. weapon-art.js dibuja sus avisos y armas. Las partidas anteriores conservan sellos, equipo y memoria al migrar las coordenadas.
+
+### Referencias de diseño
+- [Beanbean Castle Town](https://www.mariowiki.com/Beanbean_Castle_Town) inspiró los establecimientos con funciones diferentes y sus habitantes.
+- [Chuck Guy](https://www.mariowiki.com/Chuck_Guy) sirvió de referencia para comunicar un golpe mediante la postura y el arma del enemigo.
