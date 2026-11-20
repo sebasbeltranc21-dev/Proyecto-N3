@@ -9,6 +9,8 @@ import {worlds,townsperson} from '../world.js';
 test('A conversation follows its speaker as the camera moves and ends when the player leaves',()=>{
  const game=new Adventure(),npc=worlds[0].people[0];
  Object.assign(game.hero,{x:npc.x,y:npc.y});
+ game.act('attack');
+ assert.ok(Math.abs(game.hero.x-npc.x)>=28,'Both faces should be visible during the greeting');
  const speech=conversation(game,npc);
  const first=speakerPosition(game,speech);assert.ok(first);
  game.time=2;game.hero.x+=26;

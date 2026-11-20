@@ -42,7 +42,16 @@ export class Adventure {
      d.inside=a.type==='door';d.x=d.inside?319:door.x;d.y=d.inside?242:door.y+15;
      this.spawnHero();this.grace=.65;this.emit('sound','click');this.notice(d.inside?roomNames[d.zone]:'De vuelta al camino');this.emit('save');return;
    }
-   if(a.type==='npc'){this.emit('dialog',{name:a.name,line:a.line});return;}
+   if(a.type==='npc'){
+     const h=this.hero;
+     if(Math.abs(h.x-a.x)<28&&Math.abs(h.y-a.y)<24){
+       const side=h.x<a.x?-1:1;
+       const x=[a.x+side*31,a.x-side*31].find(x=>canWalk(d.zone,x,h.y));
+       if(x!==undefined){h.x=x;d.x=x;}
+     }
+     this.face=h.x<a.x?1:-1;
+     this.emit('dialog',{name:a.name,line:a.line});return;
+   }
    if(a.type==='service'){
      const used=d.services.includes(d.zone);const lines=[
       'Hay sopa caliente y una cama junto a la ventana. Recuperaste toda la vida.',

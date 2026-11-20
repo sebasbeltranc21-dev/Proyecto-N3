@@ -14,11 +14,11 @@ export function heroPose(h,walking,t){
 function shadow(g,x,y,r){
  oval(g,'#2c303553',Math.round(x),Math.round(y)-1,r,Math.max(2,Math.round(r*.25)));
 }
-export function drawHero(g,game,arena){
+export function drawHero(g,game,arena,talking=false){
  const h=game.hero,t=game.time,frame=heroPose(h,game.walk,t),face=game.face;
  shadow(g,h.x,h.y,arena?14:10);
  nativeActor(g,'hero',frame+(arena?16:0),h.x,h.y,face);
- if(frame<8||frame===12||frame===13){
+ if(!talking&&!game.data.inside&&(frame<8||frame===12||frame===13)){
   heroWeapon(g,game.data.weapon,h.x,h.y,face,arena,frame);
  }
  if(frame===15){
