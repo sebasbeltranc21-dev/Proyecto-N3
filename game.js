@@ -96,7 +96,7 @@ function syncCinematicUI(){
  $('cineSpeaker').textContent=b.speaker;
  $('cineStep').textContent=(director.index+1)+' / '+director.beats.length;
  $('cineText').textContent=director.revealedText;
- $('cinePrompt').textContent=director.lineComplete?(director.index===director.beats.length-1?'J / Espacio · Comenzar ▸':'J / Espacio · Continuar ▸'):'J / Espacio · Mostrar todo';
+ $('cinePrompt').textContent=director.lineComplete?(director.index===director.beats.length-1?'J / Espacio · Comenzar ▾':'J / Espacio · Continuar ▾'):'J / Espacio · Mostrar todo';
 }
 function bindGame(instance){
  instance.cinematicHandler=(id,onComplete)=>runCinematic(id,onComplete);
@@ -132,7 +132,13 @@ const saved=load();game=bindGame(new Adventure(saved,event));
 if(saved)$('startLabel').textContent=saved.data.won?'Ver mi aventura':'Continuar aventura';
 try{const vol=localStorage.getItem(soundSlot);if(['0','1','2'].includes(vol))audio.volume(Number(vol));}catch{}
 function renderVolume(){emblem($('soundIcon'),'sound',audio.level);$('soundBtn').title=['Sonido silenciado','Volumen bajo','Volumen alto'][audio.level];$('soundBtn').setAttribute('aria-label',$('soundBtn').title+' · cambiar');}
-renderVolume();emblem($('crest'),'crest');
+renderVolume();
+emblem($('crest'),'crest');
+emblem($('codexIcon'),'book');
+emblem($('fullIcon'),'full');
+emblem($('pauseIcon'),'pause');
+emblem($('heartIcon'),'heart');
+emblem($('boltIcon'),'bolt');
 const descriptions=[
  'El sendero de trigo se bifurca bajo los álamos. Bramble custodia el primer sello. La posada queda al oeste. El cofre está al sur de la plaza, y el molino al este del puente.',
  'Una polilla luminosa patrulla los helechos. Su sello abre el trono junto con los de la pradera y las ruinas.',
@@ -146,7 +152,7 @@ function updateCards(){
    const completed=i===3?game.data.royalTrialWon:game.data.cleared.includes(i);
    card.classList.toggle('active',current);
    card.setAttribute('aria-current',current?'location':'false');
-   card.querySelector('small').textContent=completed?(i===3?'Rey vencido':'Sello recuperado'):current?'Estás aquí':'';
+   card.querySelector('small').textContent=completed?(i===3?'★ Rey vencido':'◆ Sello recuperado'):current?'▸ Estás aquí':'';
  });
 }
 for(let i=0;i<4;i++){

@@ -133,6 +133,42 @@ function smoke(g){
   poly(g,'#d6deeb',[[7,16],[9,13],[13,13],[14,15],[16,15],[17,18],[7,18],[6,17]]);
 }
 
+function bookIcon(g){
+  rect(g,'#172129',3,2,18,20);
+  rect(g,'#8c5838',4,3,16,18);
+  rect(g,'#2d6e63',6,4,13,14);
+  rect(g,'#4ea692',7,5,11,11);
+  rect(g,'#f5d27a',9,7,7,6);
+  rect(g,'#a86c34',10,8,5,4);
+  rect(g,'#fff1c2',6,18,13,2);
+  rect(g,'#d95858',15,18,3,4);
+}
+function fullIcon(g){
+  const c='#f6d482',s='#152129';
+  for(const [x,y,dx,dy] of [[3,3,1,1],[20,3,-1,1],[3,20,1,-1],[20,20,-1,-1]]){
+    rect(g,s,x-(dx<0?6:1),y-(dy<0?6:1),8,8);
+    rect(g,c,x-(dx<0?5:0),y-(dy<0?1:0),6,2);
+    rect(g,c,x-(dx<0?1:0),y-(dy<0?5:0),2,6);
+  }
+}
+function pauseIcon(g){
+  rect(g,'#162129',5,3,6,18);rect(g,'#162129',13,3,6,18);
+  rect(g,'#f4cc72',6,4,4,16);rect(g,'#f4cc72',14,4,4,16);
+  rect(g,'#fff3c2',6,4,4,3);rect(g,'#fff3c2',14,4,4,3);
+  rect(g,'#b07839',6,18,4,2);rect(g,'#b07839',14,18,4,2);
+}
+function heartIcon(g){
+  poly(g,'#231722',[[4,4],[9,4],[12,7],[15,4],[20,4],[22,8],[22,12],[12,22],[2,12],[2,8]]);
+  poly(g,'#c9444c',[[5,6],[9,6],[12,9],[15,6],[19,6],[20,9],[20,12],[12,20],[4,12],[4,9]]);
+  poly(g,'#f26d6b',[[5,6],[9,6],[12,9],[15,6],[18,6],[18,11],[12,17],[6,11]]);
+  rect(g,'#ffcdc2',6,7,3,2);
+}
+function boltIcon(g){
+  poly(g,'#15252b',[[12,1],[19,1],[14,10],[20,10],[9,23],[11,13],[5,13]]);
+  poly(g,'#48b590',[[13,3],[17,3],[12,11],[17,11],[11,20],[12,12],[7,12]]);
+  poly(g,'#a8f7d6',[[13,3],[15,3],[11,11],[14,11],[11,16],[12,11],[8,11]]);
+}
+
 const weaponIcons=[
   g=>sword(g,0),
   g=>sword(g,1),
@@ -143,10 +179,16 @@ const weaponIcons=[
 const itemIcons=[fruit,shield,stunOrb,elixir,smoke];
 
 export function emblem(canvas,type,index=0){
+  if(!canvas)return;
   const g=canvas.getContext('2d'),w=canvas.width,h=canvas.height;g.clearRect(0,0,w,h);g.imageSmoothingEnabled=false;g.save();
   g.scale(w/24,h/24);
   if(type==='crest'){poly(g,INK,[[2,3],[21,3],[21,15],[12,23],[2,15]]);poly(g,'#dcb36c',[[3,4],[20,4],[20,14],[12,21],[3,14]]);poly(g,'#368b81',[[5,6],[18,6],[18,14],[12,18],[5,14]]);poly(g,'#fff0c3',[[6,13],[10,8],[12,11],[15,7],[18,14],[6,14]]);}
   if(type==='sound'){rect(g,'#cbd8c4',3,9,5,6);poly(g,'#f3d296',[[7,9],[14,4],[14,20],[7,15]]);if(index){rect(g,'#83d7bb',16,8,2,8);if(index===2)rect(g,'#83d7bb',20,6,1,12);}else{rect(g,'#e18b80',16,11,5,2);}}
+  if(type==='book')bookIcon(g);
+  if(type==='full')fullIcon(g);
+  if(type==='pause')pauseIcon(g);
+  if(type==='heart')heartIcon(g);
+  if(type==='bolt')boltIcon(g);
   if(type==='weapon')weaponIcons[index](g);
   if(type==='item')itemIcons[index](g);
   g.restore();

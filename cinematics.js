@@ -298,6 +298,7 @@ export class CinematicDirector{
   const bar=Math.round(Math.min(1,t*3.5)*34);
   rect(g,'#0b1019',0,0,640,bar);
   rect(g,'#0b1019',0,336-bar,640,bar);
+  if(bar>=4){rect(g,'#c99f58',0,bar-1,640,1);rect(g,'#c99f58',0,336-bar,640,1);}
   if(bar>=26&&b.title){
    label(g,b.title.toUpperCase(),320,21,'#ffcf68',9);
   }

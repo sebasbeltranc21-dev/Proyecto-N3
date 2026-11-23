@@ -102,31 +102,26 @@ function terrain(z){
 function drawWatchtower(g,o,t){
  const x=Math.round(o.x),y=Math.round(o.y);
  oval(g,'#24283455',x+2,y,24,6);
- // Stone base & tower shaft
  rect(g,'#262433',x-19,y-58,38,59);
  rect(g,'#6a677d',x-17,y-56,34,55);
  rect(g,'#89859e',x-15,y-56,11,55);
  rect(g,'#4f4c61',x+7,y-56,10,55);
- // Stone masonry lines
  for(let row=0;row<6;row++){
   rect(g,'#3b384c',x-17,y-8-row*9,34,1);
   rect(g,'#3b384c',x-6+(row%2)*8,y-17-row*9,1,9);
  }
- // Battlements / almenas
  rect(g,'#262433',x-23,y-69,46,13);
  rect(g,'#7b7790',x-21,y-67,42,9);
  for(const mx of [-21,-9,3,15]){
   rect(g,'#262433',x+mx-1,y-75,9,8);
   rect(g,'#9a95ae',x+mx,y-74,7,6);
  }
- // Warm arrow slit + hanging crimson pennant
  rect(g,'#262433',x-4,y-44,8,14);
  rect(g,'#ffcf78',x-2,y-42,4,10);
  const sway=Math.round(Math.sin(t*3+x)*1.5);
  rect(g,'#592536',x-6+sway,y-25,12,15);
  rect(g,'#b63d4f',x-5+sway,y-24,10,12);
  rect(g,'#f2c975',x-2+sway,y-20,4,5);
- // Roof brazier glow
  const flick=Math.sin(t*9+x)>0?1:0;
  rect(g,'#ff9642',x-3,y-79-flick,6,5);
  rect(g,'#fff1a8',x-1,y-78-flick,2,3);
@@ -134,18 +129,14 @@ function drawWatchtower(g,o,t){
 function drawCottage(g,o){
  const x=Math.round(o.x),y=Math.round(o.y);
  oval(g,'#2f393245',x+2,y,30,6);
- // Cozy timber & plaster cottage (distinct from the blue-doored inn)
  rect(g,'#2a242b',x-28,y-36,56,37);
  rect(g,'#e2d2b0',x-26,y-34,52,33);
  rect(g,'#c6b28f',x+8,y-34,18,33);
- // Timber beams
  rect(g,'#6e4a35',x-26,y-34,4,33);rect(g,'#6e4a35',x+22,y-34,4,33);rect(g,'#6e4a35',x-26,y-20,52,3);
- // Green-slate pitched roof
  rect(g,'#262c33',x-32,y-53,64,20);
  rect(g,'#4b7a6e',x-30,y-51,60,16);
  rect(g,'#689f8d',x-28,y-49,56,5);
  rect(g,'#365c54',x-30,y-39,60,4);
- // Warm wooden door & shuttered window
  rect(g,'#3b2822',x-17,y-17,12,16);rect(g,'#8c593c',x-15,y-15,8,14);
  rect(g,'#3b2822',x+4,y-28,12,10);rect(g,'#ffd987',x+6,y-26,8,6);
 }
@@ -156,7 +147,6 @@ function drawPlace(g,o,z,t){
  oval(g,'#313a3445',o.x+3,o.y,Math.floor(o.width*.45),5);
  stamp(g,'places',roofTiles[o.type],o.x,o.y+2,size);
  if(o.type==='gate'){
-  // Royal braziers flanking the single monumental castle entrance
   for(const side of [-46,46]){
    const bx=Math.round(o.x+side),by=Math.round(o.y-6);
    const flick=Math.round(Math.sin(t*10+side)*1.4);
@@ -180,7 +170,6 @@ function drawProp(g,o){
  stamp(g,'props',index,o.x,o.y+1,size);
 }
 function drawAtmosphere(g,z,t,cx,cy){
- // Subtle ambient particles per biome for richer immersion
  const count=z===3?22:16;
  for(let i=0;i<count;i++){
   const seed=i*97+z*31;
@@ -221,7 +210,7 @@ export function drawWorld(g,game,drawHero,drawFoe,speech,cameraOverride=null){
  const {hero:h,data:d,time:t}=game,z=d.zone,w=worlds[z];
  const request=cameraOverride?null:interaction(game);
  if(d.inside&&!cameraOverride){
-  rect(g,'#262a37',0,0,640,336);tile(g,'rooms',z,111,23,418,266);
+  rect(g,'#171c26',0,0,640,336);tile(g,'rooms',z,111,23,418,266);
   drawResident(g,{x:335,y:151,style:z*3},t,speech&&h,true);drawHero();
   if(request&&!speech)label(g,'J · '+request.title,h.x,h.y-54,'#fff0ba',9);
   return;
@@ -244,7 +233,6 @@ export function drawWorld(g,game,drawHero,drawFoe,speech,cameraOverride=null){
    case 'npc':drawResident(g,o,t,speech?.name===o.name?h:null);break;
    case 'chest':
     if(z===3&&!d.opened.includes(z)){
-     // Sacred golden dawn aura around the Espada del Alba shrine-chest
      const pulse=Math.round(Math.sin(t*3.5)*2);
      oval(g,'#ffcf6833',o.x,o.y-2,20+pulse,8);
      rect(g,'#ffe79922',o.x-8,o.y-58,16,56);
@@ -267,17 +255,27 @@ export function drawWorld(g,game,drawHero,drawFoe,speech,cameraOverride=null){
  if(request&&!speech)label(g,'J · '+request.title,h.x,h.y-54,'#fff0ba',9);
  g.restore();
  if(z===3){
-  // Subtle dramatic top/bottom shading in the castle region
-  const grad=g.createLinearGradient(0,0,0,336);
-  grad.addColorStop(0,'#120d1d44');grad.addColorStop(0.2,'#00000000');grad.addColorStop(0.85,'#00000000');grad.addColorStop(1,'#140d1b55');
-  g.fillStyle=grad;g.fillRect(0,0,640,336);
+  // Stepped pixel-art twilight edge bars (no blurry gradients)
+  rect(g,'#120c1c38',0,0,640,14);rect(g,'#120c1c1e',0,14,640,12);
+  rect(g,'#120c1c1e',0,310,640,12);rect(g,'#120c1c38',0,322,640,14);
  }
 }
 export function drawMinimap(g,game){
  const d=game.data,z=d.zone;if(d.inside)return;
- const x=568,y=300,w=64,h=29;
- rect(g,'#343e48',x-2,y-2,w+4,h+4);rect(g,'#c3aa7d',x-1,y-1,w+2,h+2);rect(g,'#526c5d',x,y,w,h);
- rect(g,'#70b3ab',x+30,y,3,h);rect(g,'#c3b182',x,y+14,w,2);
+ const x=562,y=295,w=68,h=32;
+ // 16-bit brass & ink pixel frame with 4 corner rivets
+ rect(g,'#0b141a',x-4,y-4,w+8,h+8);
+ rect(g,'#c99f58',x-3,y-3,w+6,h+6);
+ rect(g,'#0b141a',x-1,y-1,w+2,h+2);
+ rect(g,'#3b5a4d',x,y,w,h);
+ rect(g,'#59a9a1',x+32,y,4,h);
+ rect(g,'#c9b17b',x,y+15,w,3);
+ for(const [rx,ry] of [[x-3,y-3],[x+w+1,y-3],[x-3,y+h+1],[x+w+1,y+h+1]])rect(g,'#fff0b5',rx,ry,2,2);
  const dot=(o,c)=>rect(g,c,x+o.x/WORLD.width*(w-3),y+o.y/WORLD.height*(h-3),3,3);
- dot(worlds[z].houses[0],'#f2cc89');if(!d.opened.includes(z))dot(game.chest,'#d7a659');if(z===3&&!d.royalTrialWon)dot(throneGate,'#ef8070');else if(!d.cleared.includes(z))dot(game.patrol,'#ef8070');dot(game.hero,'#fffbe1');
+ dot(worlds[z].houses[0],'#f5d27a');
+ if(!d.opened.includes(z))dot(game.chest,'#ffbf4d');
+ if(z===3&&!d.royalTrialWon)dot(throneGate,'#ef6f65');
+ else if(!d.cleared.includes(z))dot(game.patrol,'#ef6f65');
+ const blink=Math.floor(game.time*4)%2===0;
+ dot(game.hero,blink?'#ffffff':'#ffe899');
 }
