@@ -212,9 +212,6 @@ function draw(dt){
    if(h.shield>0||h.haste>0)tintRing(h.x,h.y,21,7,h.shield>0?'#aff3ed':'#fadc87');
    if(h.smoke>0)for(let j=0;j<12;j++){g.fillStyle='#d1cbd0aa';g.fillRect(Math.round(h.x+Math.sin(t*3+j*8)*19),Math.round(h.y-6-(t*24+j*7)%37),5,4);}
    drawHero(g,game,arena,Boolean(speech));
-   if(h.attack>0&&arena){
-     const side=game.face;for(let j=0;j<14;j++){const a=-1.1+j*.135;g.fillStyle=j<5?'#f3c579':'#fff1bb';g.fillRect(Math.round(h.x+Math.cos(a)*weapons[d.weapon].reach*.73*side),Math.round(h.y-22+Math.sin(a)*19),2,3);}
-   }
    if(h.heal>0)label(g,'✚',h.x,h.y-56,'#b9f3ac');
  };
  const foe=(unit,scout=false)=>{
@@ -249,6 +246,10 @@ function hud(){
      button.querySelector('b').textContent=gear?'':d.bag[index];
      button.title=(locked?'Arma por descubrir':name+(gear?'':' ×'+d.bag[index]))+' ['+shortcut+']';
      button.setAttribute('aria-label',button.title);
+     if(gear&&!locked){
+       const {damage,reach,delay,cost}=weapons[index];
+       button.title+=' · Daño '+damage+' · Alcance '+reach+' · '+String(delay).replace('.',',')+' s entre ataques · '+cost+' de energía';
+     }
    }
    $('useBtn').disabled=!d.bag[d.item];
    $('useBtn').title='Usar '+items[d.item]+' [E]';

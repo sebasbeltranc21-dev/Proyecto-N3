@@ -83,7 +83,7 @@ export class Adventure {
    if(key!=='attack')return;
    if(this.mode==='map'){const a=interaction(this);if(a){this.interact(a);return;}}
    if(this.energy<w.cost)return;
-   this.energy-=w.cost;h.attack=.23;h.lock=w.delay*(h.haste>0?.75:1);this.emit('sound','attack');
+   this.energy-=w.cost;h.attackWeapon=d.weapon;h.attack=.23;h.lock=w.delay*(h.haste>0?.75:1);this.emit('sound','attack');
    if(this.mode!=='arena')return;
    const e=this.enemy,side=sector(h.x-e.x,h.y-e.y),token='atk:'+d.weapon+':'+side;
    this.learn(token);if(dist(h,e)>w.reach)return;

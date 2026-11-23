@@ -1,6 +1,7 @@
+import {weapons} from './engine.js';
 import {nativeActor} from './atlas.js';
 import {oval,rect} from './art.js';
-import {heroWeapon,armedEnemy} from './weapon-art.js';
+import {heroWeapon,heroStrike,armedEnemy} from './weapon-art.js';
 
 const clampFrame=(remaining,duration)=>Math.min(3,Math.max(0,Math.floor(4*(1-remaining/duration))));
 export function heroPose(h,walking,t){
@@ -19,7 +20,10 @@ export function drawHero(g,game,arena,talking=false){
  shadow(g,h.x,h.y,arena?14:10);
  nativeActor(g,'hero',frame+(arena?16:0),h.x,h.y,face);
  if(!talking&&!game.data.inside&&(frame<8||frame===12||frame===13)){
-  heroWeapon(g,game.data.weapon,h.x,h.y,face,arena,frame);
+  const attacking=frame>=4&&frame<=7;
+  const weapon=attacking?(h.attackWeapon??game.data.weapon):game.data.weapon;
+  if(attacking&&arena)heroStrike(g,weapon,h.x,h.y,face,weapons[weapon].reach,h.attack);
+  heroWeapon(g,weapon,h.x,h.y,face,arena,frame);
  }
  if(frame===15){
   const k=Math.floor(t*10)%7;
