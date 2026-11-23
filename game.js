@@ -39,6 +39,7 @@ async function prepareGraphics(){
    const c=card.querySelector('canvas'),ctx=c.getContext('2d');
    tile(ctx,'arenas',i,0,0,c.width,c.height);stamp(ctx,'places',[0,1,6,7][i],29,43,38);
   });
+  if(modal.open)paintMenu(menuZone);
   artReady=true;$('startLabel').textContent=saved?(saved.data.won?'Ver mi aventura':'Continuar aventura'):'Comenzar aventura';
  }catch{$('startLabel').textContent='Volver a cargar los gráficos';}
  $('start').disabled=false;
@@ -79,41 +80,109 @@ const descriptions=[
  'Entre columnas cubiertas de musgo duerme Talos. Su martillo golpea fuerte y deja una ventana para esquivar.',
  'Tras las almenas te espera el Rey Mimético. El humo oculta tu próxima acción y una esquiva tardía puede engañar su embestida.'
 ];
+const sealRegions=['Pradera','Bosque','Ruinas'];
 function updateCards(){
- [...$('zones').children].forEach((b,i)=>{
-   b.classList.toggle('active',i===game.data.zone);
-   b.querySelector('small').textContent=game.data.cleared.includes(i)?'✦ COMPLETADA':('0'+(i+1)+' / '+['PRADERA','BOSQUE','RUINAS','CASTILLO'][i]);
+ [...$('zones').children].forEach((card,i)=>{
+   const current=i===game.data.zone;
+   const completed=game.data.cleared.includes(i);
+   card.classList.toggle('active',current);
+   card.setAttribute('aria-current',current?'location':'false');
+   card.querySelector('small').textContent=completed?(i===3?'Rey vencido':'Sello recuperado'):current?'Estás aquí':'';
  });
 }
 for(let i=0;i<4;i++){
- const b=document.createElement('button');b.className='zoneCard';b.innerHTML='<canvas width="58" height="44"></canvas><span><small></small><b></b></span>';
- b.querySelector('b').textContent=regions[i];b.onclick=()=>show('region','ATLAS DE LA ISLA',regions[i],'<p>'+descriptions[i]+'</p><p>'+chamberNames[i]+' · '+roomNames[i]+' · '+guardianPlaces[i]+'</p><p>Al oeste · '+regions[exits[i][0]]+'<br>Al este · '+regions[exits[i][1]]+'</p>');
- $('zones').append(b);
+ const card=document.createElement('button');
+ card.className='zoneCard';
+ card.innerHTML='<canvas width="58" height="44" aria-hidden="true"></canvas><span><small></small><b></b></span>';
+ card.querySelector('b').textContent=regions[i];
+ card.onclick=()=>regionMenu(i);
+ $('zones').append(card);
 }
 updateCards();
-function button(text,fn){const b=document.createElement('button');b.className='chrome';b.textContent=text;b.onclick=fn;return b;}
-function show(kind,tag,title,body,actions=[]){
- keys.clear();paused=true;modalKind=kind;$('dialogTag').textContent=tag;$('dialogTitle').textContent=title;
- $('dialogBody').innerHTML=body;$('dialogActions').replaceChildren(...actions);
+let menuZone=game.data.zone;
+function paintMenu(zone){
+ const canvas=$('menuArt'),ctx=canvas.getContext('2d');
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ // Use the middle of the illustrated backdrop to keep the horizon in view.
+ tile(ctx,'arenas',zone,0,-13,288,151);
+ const landmark=[0,1,6,7][zone];
+ stamp(ctx,'places',landmark,233,99,112);
+}
+function button(text,fn){
+ const b=document.createElement('button');
+ b.className='chrome';b.type='button';b.textContent=text;b.onclick=fn;
+ return b;
+}
+function show(kind,tag,title,body,actions=[],zone=game.data.zone){
+ keys.clear();
+ paused=true;
+ modalKind=kind;
+ menuZone=zone;
+ modal.dataset.kind=kind;
+ $('dialogTag').textContent=tag;
+ $('dialogTitle').textContent=title;
+ $('dialogBody').innerHTML=body;
+ $('dialogActions').replaceChildren(...actions);
  $('close').hidden=['lost','won'].includes(kind);
+ paintMenu(zone);
  if(!modal.open)modal.showModal();
+ $('dialogTitle').focus({preventScroll:true});
+ modal.scrollTop=0;
 }
 function close(){if(modal.open)modal.close();keys.clear();paused=false;modalKind='';if(started)scene.focus({preventScroll:true});}
+
+function regionMenu(zone){
+ const links=exits[zone];
+ show('region','Atlas de la isla',regions[zone],
+   '<p class="menuLead">'+descriptions[zone]+'</p>'+
+   '<h3>Lugares</h3><ul class="menuPlaces">'+
+   [chamberNames[zone],roomNames[zone],guardianPlaces[zone]].map(name=>'<li>'+name+'</li>').join('')+'</ul>'+
+   '<nav class="menuRoutes" aria-label="Regiones vecinas"></nav>',[],zone);
+ const routes=$('dialogBody').querySelector('nav');
+ ['Oeste','Este'].forEach((direction,i)=>{
+   const next=links[i];
+   const link=button(direction+' · '+regions[next],()=>regionMenu(next));
+   routes.append(link);
+ });
+}
+
+const controls=[
+ ['WASD / ↑↓←→','Moverse'],['J','Atacar e interactuar'],['Espacio','Rodar'],
+ ['1–9 / 0','Elegir casilla'],['Q / R','Cambiar arma u objeto'],['E','Usar objeto'],['Esc','Pausar']
+];
 function codex(){
  const m=game.memory,p=m.predict(50,100*game.data.hp/game.maxHp);
- show('codex','CÓDICE DEL VIAJERO','La memoria de la isla',
- '<p>Cada guardián transmite tus acciones al Rey. Repite tres o cuatro veces una esquiva en la misma dirección y observa hacia dónde apunta la siguiente embestida.</p>'+
- '<dl><dt>Acciones vistas</dt><dd>'+m.samples+'</dd><dt>Predicciones acertadas</dt><dd>'+m.hits+' / '+m.scored+'</dd><dt>Lectura a corta distancia</dt><dd>'+habit(p.action)+'</dd></dl>'+
- '<p><b>Ruta</b> · Derrota a los guardianes de la pradera, el bosque y las ruinas. Con sus tres sellos podrás entrar al castillo.</p>'+
- '<p><b>Controles</b> · WASD o flechas para moverte, J para atacar, hablar, entrar o abrir cofres, espacio para rodar, Q para cambiar de arma, R para elegir objeto y E para usarlo. Esc pausa la partida.</p>',
- [button(started?'Volver al juego':'Volver a la portada',close)]);
+ show('codex','Códice del viajero','La memoria de la isla',
+   '<p class="menuLead">El Rey aprende de los encuentros de toda la isla. Cambia la dirección de tus esquivas para confundirlo.</p>'+
+   '<dl class="menuStats"><div><dt>Acciones vistas</dt><dd>'+m.samples+'</dd></div>'+
+   '<div><dt>Predicciones acertadas</dt><dd>'+m.hits+' / '+m.scored+'</dd></div>'+
+   '<div class="memoryRead"><dt>Lectura a corta distancia</dt><dd>'+habit(p.action)+'</dd></div></dl>'+
+   '<p>Reúne los sellos de la pradera, el bosque y las ruinas para abrir el castillo.</p>'+
+   '<details class="menuControls"><summary>Controles</summary><ul>'+
+   controls.map(([key,action])=>'<li><span>'+action+'</span><kbd>'+key+'</kbd></li>').join('')+'</ul></details>',
+   [button(started?'Volver al juego':'Volver a la portada',close)]);
 }
-function pause(){if(!started||modal.open)return;show('pause','CAMPAMENTO','Juego en pausa','<p>'+regions[game.data.zone]+' · '+game.data.cleared.filter(i=>i<3).length+' de 3 sellos recuperados.</p>',[button('Continuar',close),button('Abrir códice',codex)]);}
+function pause(){
+ if(!started||modal.open)return;
+ const count=sealRegions.filter((_,i)=>game.data.cleared.includes(i)).length;
+ const seals=sealRegions.map((name,i)=>{
+   const found=game.data.cleared.includes(i);
+   return '<li class="'+(found?'collected':'')+'"><span aria-hidden="true">'+(found?'◆':'◇')+'</span>'+
+     '<span>'+name+'<small>'+(found?'Recuperado':'Pendiente')+'</small></span></li>';
+ }).join('');
+ show('pause','Campamento','Juego en pausa',
+   '<p class="menuLead">'+regions[game.data.zone]+'</p>'+
+   '<h3>Sellos recuperados <span>'+count+' / 3</span></h3><ul class="menuSeals">'+seals+'</ul>',
+   [button('Continuar',close),button('Abrir códice',codex)]);
+}
 function ending(won){
  const m=game.memory;
- show(won?'won':'lost',won?'FIN DE LA AVENTURA':'CAÍSTE EN COMBATE',won?'La isla vuelve a cantar':'El eco permanece',won?'<p>Los tres sellos rompieron la corona del Rey Mimético. La isla conserva el recuerdo de tus '+m.samples+' acciones.</p>':'<p>Vuelves a la región con la vida completa. Tus armas, sellos y los recuerdos aprendidos siguen contigo.</p>',
- [...(won?[button('Seguir explorando',()=>{close();game.mode='map';game.grace=1;tell('La isla está en paz · quedan lugares por descubrir');updateCards();save();})]:[]),
- button(won?'Nueva aventura':'Volver al sendero',()=>{close();if(won){game=new Adventure(null,event);tell('Busca el primer sello');}else game.retry();effects.length=0;updateCards();save();})]);
+ show(won?'won':'lost',won?'Fin de la aventura':'Caíste en combate',won?'La isla vuelve a cantar':'El eco permanece',
+   won?'<p class="menuLead">Los tres sellos rompieron la corona del Rey Mimético.</p>'+
+     '<dl class="menuStats"><div><dt>Acciones recordadas</dt><dd>'+m.samples+'</dd></div></dl>'
+      :'<p class="menuLead">Vuelves a la región con la vida completa. Tus armas, sellos y los recuerdos aprendidos siguen contigo.</p>',
+   [...(won?[button('Seguir explorando',()=>{close();game.mode='map';game.grace=1;tell('La isla está en paz · quedan lugares por descubrir');updateCards();save();})]:[]),
+   button(won?'Nueva aventura':'Volver al sendero',()=>{close();if(won){game=new Adventure(null,event);tell('Busca el primer sello');}else game.retry();effects.length=0;updateCards();save();})]);
 }
 $('close').onclick=close;modal.addEventListener('cancel',e=>{e.preventDefault();if(!['won','lost'].includes(modalKind))close();});
 $('start').onclick=()=>{
