@@ -41,7 +41,8 @@ html.playing-full,html.playing-full body{overflow:hidden}
 .belt .inventorySlot:disabled{opacity:1;background:#464643}
 .inventorySlot:disabled canvas{visibility:hidden}
 .inventorySlot.empty canvas{opacity:.45}
-.belt .inventorySlot canvas{width:75%;height:75%}
+.belt .inventorySlot canvas{width:78%;height:78%;image-rendering:pixelated}
+.inventorySlot small,.inventorySlot b{pointer-events:none}
 .inventorySlot small,.inventorySlot b{position:absolute;z-index:1;font-size:clamp(6px,.8vw,10px);line-height:1;text-shadow:1px 1px #121212}
 .inventorySlot small{top:2px;left:2px;color:#e1dfcd}
 .inventorySlot b{right:2px;bottom:1px;color:white}
