@@ -1,7 +1,10 @@
-import {oval,poly,rect} from './art.js';
+import {poly,rect} from './art.js';
 import {drawOpponent} from './actors.js';
 import {drawArena} from './village-art.js';
+import {drawDragon} from './dragon-art.js';
 import {breathHalfAngle,breathRange,dragonMoves,diveFlight,impactRadius} from './battle-plus.js';
+
+export {drawDragon};
 
 export function drawCaldera(g,t){
  drawArena(g,3,t);
@@ -65,57 +68,6 @@ function dragonThreat(g,d,t){
   const a=d.angle+side*.33;
   rect(g,'#ffb784a8',d.x+Math.cos(a)*step,d.y+Math.sin(a)*step,3,3);
  }
-}
-
-export function drawDragon(g,d,t){
- const diving=d.move==='dive'&&d.phase==='attack'&&d.age<diveFlight;
- const lifting=d.move==='dive'&&d.phase==='wind';
- const lift=d.phase==='land'?Math.max(0,1-d.age/1.15)*108:
-   diving?Math.sin(Math.PI*d.age/diveFlight)*65+12*(1-d.age/diveFlight):
-   lifting?d.age/d.duration*12:0;
- const wings=Math.round(Math.sin(t*(lift>0?17:7))*(lift>0?12:4));
- const crouch=d.phase==='recover'?8:0;
- const fire=d.move!=='dive'&&(d.phase==='wind'||d.phase==='attack');
- const outline='#201b32',dark='#24515a',scale=d.hurt>0?'#adf8e6':'#428d86';
- const light=d.hurt>0?'#f0ffff':'#70bf9f';
- const membrane=d.fast?'#a64650':'#70426c';
- oval(g,'#120b2399',d.x,d.y,Math.round(45-lift*.2),7);
- g.save();
- g.translate(Math.round(d.x),Math.round(d.y-lift+crouch));
- g.scale(d.face,1);
-
- poly(g,outline,[[-12,-40],[-36,-65],[-31,-93+wings],[-12,-77+wings],[2,-63],[26,-60],[15,-45],[-1,-35]]);
- poly(g,membrane,[[-13,-44],[-32,-66],[-30,-88+wings],[-11,-73+wings],[4,-59],[20,-57],[11,-46]]);
- poly(g,outline,[[-22,-18],[-49,-19],[-65,-11],[-81,-16],[-59,-25],[-51,-31],[-27,-38]]);
- poly(g,dark,[[-20,-22],[-48,-22],[-64,-15],[-71,-16],[-55,-27],[-45,-30],[-26,-34]]);
- poly(g,outline,[[-25,-11],[-22,-26],[-16,-36],[-4,-44],[16,-49],[21,-62],[36,-69],[49,-63],[52,-55],[65,-52],[64,-43],[53,-37],[44,-41],[32,-33],[25,-12],[11,-5],[-13,-4]]);
- poly(g,dark,[[-23,-13],[-20,-26],[-10,-38],[11,-45],[20,-49],[24,-61],[36,-66],[46,-61],[50,-53],[62,-50],[61,-44],[48,-41],[41,-43],[29,-33],[23,-15],[9,-8],[-13,-7]]);
- poly(g,scale,[[-19,-20],[-9,-35],[8,-42],[20,-46],[23,-56],[34,-63],[44,-59],[48,-51],[60,-48],[49,-45],[39,-47],[28,-39],[21,-24],[2,-18]]);
- poly(g,light,[[4,-37],[22,-47],[27,-56],[37,-61],[44,-57],[31,-53],[25,-42],[17,-32],[0,-25]]);
- poly(g,outline,[[22,-58],[19,-73],[22,-78],[32,-66],[39,-64]]);
- poly(g,'#e6bd89',[[23,-61],[22,-73],[30,-64],[34,-62]]);
- poly(g,'#d49d80',[[31,-58],[37,-56],[40,-51],[35,-52]]);
- rect(g,fire?'#fff0a0':'#ffbb66',39,-55,4,3);
- rect(g,outline,42,-55,1,3);
- if(fire){
-  poly(g,outline,[[42,-45],[65,-46],[61,-35],[54,-30],[46,-35]]);
-  rect(g,'#ff7048',49,-43,12,4);
-  rect(g,'#fff0ae',57,-44,5,2);
- }
- poly(g,outline,[[-23,-20],[-9,-23],[-5,-14],[-8,-6],[-3,-2],[-5,2],[-26,2],[-25,-5],[-21,-8]]);
- poly(g,scale,[[-21,-18],[-10,-20],[-8,-15],[-12,-4],[-20,-4]]);
- rect(g,'#eab787',-11,-3,5,3);
- poly(g,outline,[[10,-21],[24,-22],[26,-12],[20,-5],[29,-1],[28,2],[8,2],[7,-5],[15,-11]]);
- poly(g,scale,[[13,-19],[23,-19],[22,-12],[16,-5],[12,-5],[17,-14]]);
- rect(g,'#eab787',21,-2,6,2);
-
- const wingTip=-81+wings+(crouch?12:0);
- poly(g,outline,[[-5,-43],[-20,-62],[-49,wingTip],[-61,wingTip+12],[-60,-48],[-52,-35],[-49,-46],[-34,-36],[-27,-31],[-23,-41],[0,-31]]);
- poly(g,membrane,[[-9,-43],[-23,-61],[-49,wingTip+4],[-57,wingTip+14],[-57,-49],[-53,-41],[-50,-51],[-34,-41],[-27,-36],[-25,-46],[-4,-37]]);
- poly(g,scale,[[-8,-42],[-20,-62],[-47,wingTip+2],[-55,wingTip+7],[-45,wingTip+10],[-26,-57],[-15,-41],[-3,-35]]);
- poly(g,'#bf798a',[[-51,wingTip+12],[-45,-53],[-33,-42],[-47,-51],[-53,-43]]);
- for(let i=0;i<5;i++)rect(g,light,-5+i*5,-25+i%2*3,3,2);
- g.restore();
 }
 
 export function drawPlusBattle(g,battle,drawHero){

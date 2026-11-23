@@ -4,6 +4,7 @@ import {rect,oval,label} from './art.js';
 import {tile,nativeActor} from './atlas.js';
 import {drawCaldera} from './battle-plus-art.js';
 import {drawDiamondBlade} from './weapon-art.js';
+import {drawMimicKing} from './king-art.js';
 
 export const royalPhaseQuotes={
  2:{title:'Fase II · El Espejo',line:'«Tus pasos ya dibujan mi reflejo en la piedra.»'},
@@ -285,19 +286,14 @@ export class CinematicDirector{
    const enter=Math.min(1,t*0.7);
    const hx=Math.round(92+enter*92);
    const kx=Math.round(480-Math.min(1,Math.max(0,(t-0.4)*0.8))*35);
-   // Royal aura behind the King
-   if((b.step||0)>=1){
-    for(let i=0;i<12;i++){
-     const ang=i*Math.PI/6+t*1.6;
-     rect(g,b.step>=2?'#efabcf':'#a0e5cb',kx+Math.cos(ang)*28,196+Math.sin(ang)*9,3,2);
-    }
-   }
    oval(g,'#1a142666',hx,206,15,5);
    nativeActor(g,'hero',16+(enter<1?Math.floor(t*9)%4:12),hx,204,1);
    // Golden glint on the Hero's Espada del Alba
    rect(g,'#fff0b0',hx+16,176+Math.round(Math.sin(t*6)*2),3,14);
-   oval(g,'#1a142666',kx,206,20,6);
-   nativeActor(g,'foes',48+3*4+((b.step||0)>=2?2:Math.floor(t*3)%2),kx,204,-1);
+   drawMimicKing(g,{
+    x:kx,y:204,face:-1,phase:1,walk:t>.4&&kx>445,phaseDelay:b.step,
+    wind:b.step===2?Math.max(.12,.9-bt*.72):0,windDuration:.9
+   },t);
    // Floating throne embers
    for(let i=0;i<18;i++){
     const ex=(i*49+t*18)%640,ey=240-((t*28+i*23)%190);
