@@ -242,3 +242,60 @@ html.playing-full,html.playing-full body{overflow:hidden}
   content:"";position:absolute;inset:0;
   background:linear-gradient(90deg,transparent calc(33.33% - 1px),#18242e calc(33.33% - 1px) 33.33%,transparent 33.33% calc(66.67% - 1px),#18242e calc(66.67% - 1px) 66.67%,transparent 66.67%);
 }
+
+/* Immersive cinematic letterbox & dialogue UI */
+#cinematic{
+  position:absolute;inset:0;z-index:12;
+  display:flex;flex-direction:column;justify-content:flex-end;align-items:center;
+  padding:8px 14px 10px;pointer-events:auto;
+}
+#cineSkip{
+  position:absolute;top:6px;right:10px;z-index:14;
+  padding:4px 9px;font-size:clamp(8px,.85vw,11px);
+  background:#141e2be0;border-color:#877453;color:#ffe8b8;
+}
+#cineBox{
+  width:min(94%,580px);
+  background:linear-gradient(180deg,#121d2bee,#0d1522f5);
+  border:2px solid #d4ae66;
+  box-shadow:inset 0 0 0 2px #263447,0 4px 16px #060a10cc;
+  padding:10px 14px 8px;
+  cursor:pointer;outline:none;
+}
+.cineMeta{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin-bottom:5px;
+}
+#cineSpeaker{
+  color:#ffcf68;font-size:clamp(9px,1vw,13px);letter-spacing:.04em;
+  text-shadow:1px 1px #091018;
+}
+#cineStep{color:#91b8a8;font-size:clamp(8px,.8vw,10px)}
+#cineText{
+  margin:0;color:#fff4dc;
+  font:clamp(11px,1.2vw,15px)/1.45 system-ui,-apple-system,sans-serif;
+  min-height:2.8em;
+}
+.cineFoot{display:flex;justify-content:flex-end;margin-top:5px}
+#cinePrompt{
+  color:#98e8c8;font-size:clamp(8px,.82vw,10px);
+  animation:cinePulse 1.2s ease-in-out infinite;
+}
+@keyframes cinePulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+#phaseBanner{
+  position:absolute;top:18%;left:50%;transform:translateX(-50%);z-index:11;
+  width:max-content;max-width:88%;text-align:center;pointer-events:none;
+  background:#151224eb;border:2px solid #e6b868;
+  box-shadow:inset 0 0 0 2px #3c2947,0 4px 14px #080712cc;
+  padding:8px 16px;
+}
+#phaseTitle{display:block;color:#ffcf68;font-size:clamp(10px,1.15vw,14px);margin-bottom:3px}
+#phaseLine{display:block;color:#f6e8d5;font:clamp(10px,1.05vw,13px)/1.35 system-ui,sans-serif}
+
+@media(max-width:600px){
+  #cinematic{padding:4px 6px 6px}
+  #cineBox{padding:6px 8px 5px}
+  #cineText{font-size:11px;min-height:2.3em}
+  #cineSkip{top:3px;right:4px;padding:2px 6px;font-size:8px}
+}

@@ -14,13 +14,14 @@ const locals=[
  [['Inés','El molino gira incluso cuando el viento para. Bramble tiene su sello al otro lado del río.'],['Teo','La posada huele a pan. Acércate a la puerta azul y pulsa J para descansar.'],['Mara','El guardabrotes guarda una jabalina bajo las hojas. Sal de su línea cuando la levante.']],
  [['Lía','Cultivo hongos con luz propia. En la botica guardamos fruta para el camino.'],['Jun','Mira las alas de Lumbre. Cuando se abren, vienen tres cuchillas.'],['Tilo','Las motas doradas vuelven al claro cada anochecer. Lumbre las sigue.']],
  [['Uma','Encontramos un mapa bajo el mosaico. El archivo conserva las notas de los primeros viajeros.'],['Oriel','Los canteros dejaban agua junto al puente. Así encontraban la cantera al regresar.'],['Sira','Cuando Talos planta los pies, levanta el martillo. Rueda al atravesar la onda.']],
- [['Ada','Antes de la corona yo hacía hebillas. Ahora reparo los escudos de la guardia.'],['Nilo','La Espada del Alba está en el cofre junto al portón. Llévala antes de cruzar.'],['Sol','El portón lleva al trono. El Rey te espera dentro y recuerda hacia dónde esquivas.']]
+ [['Ada','Antes de la corona yo hacía hebillas. Ahora reparo los escudos de la guardia en la única armería del barrio.'],['Nilo','El altar junto al castillo resguarda la Espada del Alba. Solo su filo rompe los ecos del Rey.'],['Sol','El portón del castillo lleva al Salón del Trono. Acércate cuando estés listo: el Rey recuerda cada paso tuyo.']]
 ];
+// Each zone has strictly ONE unique landmark (inn/herbal/archive/armory, ONE mill, ONE castle gate).
 const layouts=[
- [[160,258,'inn'],[374,205,'house'],[503,337,'stall'],[934,223,'mill'],[1103,446,'barn']],
+ [[160,258,'inn'],[374,205,'cottage'],[503,337,'stall'],[934,223,'mill'],[1103,446,'tent']],
  [[158,246,'herbal'],[383,210,'hut'],[535,398,'stall'],[903,243,'hut'],[1171,439,'shrine']],
  [[160,247,'archive'],[381,205,'tent'],[504,384,'stall'],[925,232,'arch'],[1154,443,'tent']],
- [[164,240,'armory'],[380,208,'tower'],[505,385,'stall'],[928,232,'gate'],[1158,444,'tower']]
+ [[164,240,'armory'],[380,208,'watchtower'],[505,385,'stall'],[928,232,'gate'],[1158,444,'watchtower']]
 ];
 const decorations=[
  [['well',288,287],['cart',420,358],['hay',858,419],['fence',80,377],['garden',350,435],['barrels',218,252],['garden',1033,274],['lantern',585,293]],
@@ -28,12 +29,12 @@ const decorations=[
  [['obelisk',283,284],['cart',416,359],['obelisk',857,419],['pillar',77,381],['mosaic',360,443],['barrels',223,245],['pillar',1008,272],['lantern',581,292]],
  [['fountain',288,287],['rack',408,368],['rack',849,413],['fence',84,384],['banners',359,450],['barrels',223,246],['banners',1019,275],['lantern',582,292]]
 ];
-const sizes={inn:90,house:76,stall:59,mill:80,barn:84,herbal:87,hut:73,archive:92,armory:90,shrine:43,tent:66,arch:78,tower:61,gate:93};
+const sizes={inn:90,cottage:74,stall:59,mill:80,herbal:87,hut:73,archive:92,armory:90,shrine:43,tent:66,arch:78,watchtower:54,gate:98};
 const sideStreets=[
- [[70,151,'barn'],[486,512,'house'],[1240,227,'tent']],
- [[85,166,'hut'],[403,526,'herbal'],[1060,132,'shrine']],
- [[80,171,'tent'],[481,513,'arch'],[1150,160,'archive']],
- [[86,165,'tower'],[476,511,'armory'],[1141,155,'gate']]
+ [[70,151,'tent'],[486,512,'cottage'],[1240,227,'tent']],
+ [[85,166,'hut'],[403,526,'tent'],[1060,132,'shrine']],
+ [[80,171,'tent'],[481,513,'arch'],[1150,160,'tent']],
+ [[86,165,'watchtower'],[476,511,'tent'],[1141,155,'arch']]
 ];
 export const worlds=layouts.map((buildings,z)=>{
  const houses=[...buildings,...sideStreets[z]].map(([x,y,type],i)=>({x,y,type,width:sizes[type],solid:true,door:i===0}));
@@ -68,8 +69,8 @@ export function interaction(game){
  }
  const w=worlds[d.zone];
  const candidates=[{...w.houses[0],y:w.houses[0].y+6,type:'door',title:'ENTRAR'},...w.people.map((n,i)=>({...townsperson(n,game.time,i),title:'HABLAR'}))];
- if(!d.opened.includes(d.zone))candidates.push({...w.chest,type:'chest',title:d.zone===3?'TOMAR ESPADA':'ABRIR'});
- if(d.zone===3&&!d.royalTrialWon)candidates.push({...throneGate,type:'throne',title:'ENTRAR AL TRONO'});
+ if(!d.opened.includes(d.zone))candidates.push({...w.chest,type:'chest',title:d.zone===3?'DESPERTAR ESPADA':'ABRIR'});
+ if(d.zone===3&&!d.royalTrialWon)candidates.push({...throneGate,type:'throne',title:'ENTRAR AL CASTILLO'});
  for(const [i,o] of discoveries[d.zone].entries())if(!d.found.includes(d.zone*2+i))candidates.push({...o,id:d.zone*2+i,type:'find',title:'EXAMINAR'});
  return candidates.map(o=>({...o,distance:Math.hypot(h.x-o.x,h.y-o.y)})).filter(o=>o.distance<35).sort((a,b)=>a.distance-b.distance)[0];
 }

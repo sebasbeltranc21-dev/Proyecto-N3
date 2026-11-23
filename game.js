@@ -9,6 +9,7 @@ import {loadAtlas,tile,stamp} from './atlas.js';
 import {ChipAudio} from './audio.js';
 import {habit} from './learning.js';
 import {emblem,label,enemyNames,regions} from './art.js';
+import {CinematicDirector,royalPhaseQuotes} from './cinematics.js';
 
 const $=id=>document.getElementById(id);
 const scene=$('scene'),modal=$('modal');
@@ -25,6 +26,9 @@ new ResizeObserver(resizeDisplay).observe(scene);
 window.addEventListener('resize',resizeDisplay);
 const slot='isla-ecos-adventure-v1',soundSlot='isla-ecos-vol-v1';
 const audio=new ChipAudio(),keys=new Set(),effects=[];
+let shakeTime=0,shakeMag=0,phaseBannerUntil=0;
+function triggerShake(mag=3,duration=.22){shakeMag=Math.max(shakeMag,mag);shakeTime=Math.max(shakeTime,duration);}
+const director=new CinematicDirector(audio,triggerShake);
 const graphics=[
  ['places','poblados.png',4,3],['hero','viajero.png',4,8],['residents','vecinos.png',4,8],
  ['foes','guardianes.png',4,16],['tiles','terreno.png',4,4],['props','objetos.png',4,4],
@@ -58,18 +62,73 @@ let game,started=false,paused=false,modalKind='',message='',messageUntil=0,flash
 function load(){try{const s=JSON.parse(localStorage.getItem(slot));return s?.version===1?s:null;}catch{return null;}}
 function save(){try{if(game&&started)localStorage.setItem(slot,JSON.stringify(game.snapshot()));}catch{$('saveState').textContent='Guardado no disponible';}}
 function tell(msg){message=msg;messageUntil=(game?.time||0)+3.2;}
+function showPhaseBanner(phase){
+ const quote=royalPhaseQuotes[phase];
+ if(!quote)return;
+ $('phaseTitle').textContent=quote.title;
+ $('phaseLine').textContent=quote.line;
+ $('phaseBanner').hidden=false;
+ phaseBannerUntil=(game?.time||0)+3.5;
+ flash=.16;
+ triggerShake(4,.32);
+}
+function runCinematic(id,onComplete=()=>{}){
+ clearSpeech();
+ keys.clear();
+ $('phaseBanner').hidden=true;
+ const played=director.play(id,game,()=>{
+  $('cinematic').hidden=true;
+  if(started)$('hud').hidden=false;
+  keys.clear();
+  onComplete();
+  save();
+ });
+ if(played){
+  $('hud').hidden=true;
+  $('cinematic').hidden=false;
+  syncCinematicUI();
+  $('cineBox').focus({preventScroll:true});
+ }
+}
+function syncCinematicUI(){
+ const b=director.current;
+ if(!b)return;
+ $('cineSpeaker').textContent=b.speaker;
+ $('cineStep').textContent=(director.index+1)+' / '+director.beats.length;
+ $('cineText').textContent=director.revealedText;
+ $('cinePrompt').textContent=director.lineComplete?(director.index===director.beats.length-1?'J / Espacio · Comenzar ▸':'J / Espacio · Continuar ▸'):'J / Espacio · Mostrar todo';
+}
+function bindGame(instance){
+ instance.cinematicHandler=(id,onComplete)=>runCinematic(id,onComplete);
+ return instance;
+}
 function event(type,value){
  if(type==='sound')audio.play(value,game.data.weapon);
  if(type==='notice')tell(value);
- if(type==='effect'){effects.push({...value,age:0});flash=.06;}
+ if(type==='effect'){effects.push({...value,age:0});flash=.06;if(String(value.text).includes('−'))triggerShake(2,.12);}
  if(type==='save'){save();updateCards();}
  if(type==='dialog')speak(value);
  if(type==='arena'||type==='zone')updateCards();
- if(type==='zone')tell(regions[game.data.zone]);
- if(type==='won')ending(true);
+ if(type==='royal_phase')showPhaseBanner(value);
+ if(type==='cinematic'){
+  runCinematic(value.id);
+ }
+ if(type==='zone'){
+  tell(regions[game.data.zone]);
+  if(game.data.zone===3&&!game.hasSeenCinematic('castle_arrival')){
+   game.markCinematic('castle_arrival');
+   runCinematic('castle_arrival');
+  }
+ }
+ if(type==='won'){
+  if(!game.hasSeenCinematic('victory')){
+   game.markCinematic('victory');
+   runCinematic('victory',()=>ending(true));
+  }else ending(true);
+ }
  if(type==='lost')ending(false);
 }
-const saved=load();game=new Adventure(saved,event);
+const saved=load();game=bindGame(new Adventure(saved,event));
 if(saved)$('startLabel').textContent=saved.data.won?'Ver mi aventura':'Continuar aventura';
 try{const vol=localStorage.getItem(soundSlot);if(['0','1','2'].includes(vol))audio.volume(Number(vol));}catch{}
 function renderVolume(){emblem($('soundIcon'),'sound',audio.level);$('soundBtn').title=['Sonido silenciado','Volumen bajo','Volumen alto'][audio.level];$('soundBtn').setAttribute('aria-label',$('soundBtn').title+' · cambiar');}
@@ -78,7 +137,7 @@ const descriptions=[
  'El sendero de trigo se bifurca bajo los álamos. Bramble custodia el primer sello. La posada queda al oeste. El cofre está al sur de la plaza, y el molino al este del puente.',
  'Una polilla luminosa patrulla los helechos. Su sello abre el trono junto con los de la pradera y las ruinas.',
  'Entre columnas cubiertas de musgo duerme Talos. Su martillo golpea fuerte y deja una ventana para esquivar.',
- 'Recoge la Espada del Alba en el cofre junto al portón y cruza al salón del trono. El Rey Mimético tiene tres fases y aprende hacia dónde te mueves.'
+ 'Despierta la Espada del Alba en el altar junto al único portón del castillo y cruza al Salón del Trono. El Rey Mimético tiene tres fases y recuerda cómo peleas.'
 ];
 const sealRegions=['Pradera','Bosque','Ruinas'];
 function updateCards(){
@@ -103,7 +162,6 @@ let menuZone=game.data.zone;
 function paintMenu(zone){
  const canvas=$('menuArt'),ctx=canvas.getContext('2d');
  ctx.clearRect(0,0,canvas.width,canvas.height);
- // Use the middle of the illustrated backdrop to keep the horizon in view.
  tile(ctx,'arenas',zone,0,-13,288,151);
  const landmark=[0,1,6,7][zone];
  stamp(ctx,'places',landmark,233,99,112);
@@ -147,8 +205,8 @@ function regionMenu(zone){
 }
 
 const controls=[
- ['WASD / ↑↓←→','Moverse'],['J','Atacar e interactuar'],['Espacio','Rodar'],
- ['1–9 / 0','Elegir casilla'],['Q / R','Cambiar arma u objeto'],['E','Usar objeto'],['Esc','Pausar']
+ ['WASD / ↑↓←→','Moverse'],['J','Atacar / Interactuar / Continuar'],['Espacio','Rodar / Continuar'],
+ ['1–9 / 0','Elegir casilla'],['Q / R','Cambiar arma u objeto'],['E','Usar objeto'],['Esc','Pausar / Saltar cinemática']
 ];
 function codex(){
  const m=game.memory,p=m.predict(50,100*game.data.hp/game.maxHp);
@@ -163,7 +221,7 @@ function codex(){
    [button(started?'Volver al juego':'Volver a la portada',close)]);
 }
 function pause(){
- if(!started||modal.open)return;
+ if(!started||modal.open||director.active)return;
  const count=sealRegions.filter((_,i)=>game.data.cleared.includes(i)).length;
  const seals=sealRegions.map((name,i)=>{
    const found=game.data.cleared.includes(i);
@@ -182,14 +240,23 @@ function ending(won){
      '<dl class="menuStats"><div><dt>Acciones recordadas</dt><dd>'+m.samples+'</dd></div></dl>'
       :'<p class="menuLead">Vuelves a la región con la vida completa. Tus armas, sellos y los recuerdos aprendidos siguen contigo.</p>',
    [...(won?[button('Seguir explorando',()=>{close();game.mode='map';game.grace=1;tell('La isla está en paz · quedan lugares por descubrir');updateCards();save();})]:[]),
-   button(won?'Nueva aventura':'Volver al sendero',()=>{close();if(won){game=new Adventure(null,event);tell('Busca el primer sello');}else game.retry();effects.length=0;updateCards();save();})]);
+   button(won?'Nueva aventura':'Volver al sendero',()=>{close();if(won){game=bindGame(new Adventure(null,event));game.markCinematic('intro');runCinematic('intro',()=>tell('Busca el primer sello'));}else game.retry();effects.length=0;updateCards();save();})]);
 }
 $('close').onclick=close;modal.addEventListener('cancel',e=>{e.preventDefault();if(!['won','lost'].includes(modalKind))close();});
+$('cineBox').onclick=()=>{if(director.active)director.advance();};
+$('cineSkip').onclick=()=>{if(director.active)director.skip();};
 $('start').onclick=()=>{
  if(!artReady){void prepareGraphics();return;}
  audio.start();started=true;$('cover').hidden=true;$('hud').hidden=false;scene.focus();
  $('touch').hidden=!matchMedia('(pointer: coarse), (max-width: 760px)').matches;
- if(game.data.royalTrialWon){game.mode='won';ending(true);}else if(game.data.hp<=0){game.retry();}else tell(game.data.zone===3?'El cofre del Alba y el trono están junto al portón':'J para hablar o entrar · Cruza el puente hacia el guardián');
+ if(game.data.royalTrialWon){game.mode='won';ending(true);}
+ else if(game.data.hp<=0){game.retry();}
+ else if(!game.hasSeenCinematic('intro')&&game.data.zone===0&&!game.data.cleared.length){
+  game.markCinematic('intro');
+  runCinematic('intro',()=>tell('J para hablar o entrar · Cruza el puente hacia el guardián'));
+ }else{
+  tell(game.data.zone===3?'El altar del Alba y el portón están al este del puente':'J para hablar o entrar · Cruza el puente hacia el guardián');
+ }
  save();
 };
 $('codexBtn').onclick=codex;$('pauseBtn').onclick=pause;
@@ -227,11 +294,21 @@ $('leaveFull').onclick=leaveFull;
 const actions={KeyJ:'attack',Space:'roll',KeyQ:'weapon',KeyR:'select',KeyE:'item'};
 const movement=['KeyW','KeyA','KeyS','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'];
 function engage(k){
- if(!started||paused)return;keys.add(k);
+ if(!started||paused)return;
+ if(director.active){
+  if(k==='KeyJ'||k==='Space'||k==='Enter')director.advance();
+  return;
+ }
+ keys.add(k);
  if(k==='KeyJ'&&speech){clearSpeech();return;}
  if(actions[k])game.act(actions[k]);
 }
 window.addEventListener('keydown',e=>{
+ if(director.active){
+  if(e.code==='Escape'){e.preventDefault();director.skip();return;}
+  if(['KeyJ','Space','Enter'].includes(e.code)){e.preventDefault();if(!e.repeat)director.advance();return;}
+  return;
+ }
  if(e.code==='Escape'&&immersive&&!modal.open){e.preventDefault();leaveFull();return;}
  if(!started||modal.open||e.ctrlKey||e.altKey||e.metaKey)return;
  if(e.code==='Escape'){e.preventDefault();pause();return;}
@@ -242,11 +319,11 @@ window.addEventListener('keydown',e=>{
  if(actions[e.code]||movement.includes(e.code)){e.preventDefault();if(!e.repeat)engage(e.code);}
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));
-window.addEventListener('blur',()=>{keys.clear();if(started&&!modal.open)pause();});
+window.addEventListener('blur',()=>{keys.clear();if(started&&!modal.open&&!director.active)pause();});
 window.addEventListener('pagehide',save);
-document.addEventListener('visibilitychange',()=>{if(document.hidden){save();keys.clear();if(started&&!modal.open)pause();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){save();keys.clear();if(started&&!modal.open&&!director.active)pause();}});
 function selectSlot(position){
- if(!started||paused||!['arena','map'].includes(game.mode))return;
+ if(!started||paused||director.active||!['arena','map'].includes(game.mode))return;
  const d=game.data;
  if(position<weapons.length){
    if(!d.unlocked.includes(position))return;
@@ -265,7 +342,7 @@ const inventorySlots=[...weapons.map(w=>w.name),...items].map((name,position)=>{
  $(gear?'gearSlots':'bagSlots').append(button);
  return {button,name,gear,index,key};
 });
-$('useBtn').onclick=()=>{if(!paused){game.act('item');scene.focus({preventScroll:true});}};
+$('useBtn').onclick=()=>{if(!paused&&!director.active){game.act('item');scene.focus({preventScroll:true});}};
 for(const b of $('touch').querySelectorAll('[data-key]')){
  b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);engage(b.dataset.key);});
  for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>keys.delete(b.dataset.key));
@@ -289,6 +366,19 @@ function draw(dt){
    if(e?.stun>0)label(g,'✦ ✦',unit.x,unit.y-55,'#ffe58d');
    if(!arena)label(g,scout?'•':'◆',unit.x,unit.y-size*.78+Math.round(Math.sin(t*3)*2),scout?'#f2b69d':'#ffee99',10);
  };
+ g.save();
+ if(shakeTime>0){
+  shakeTime=Math.max(0,shakeTime-dt);
+  const sx=Math.round((Math.random()*2-1)*shakeMag);
+  const sy=Math.round((Math.random()*2-1)*shakeMag);
+  g.translate(sx,sy);
+  if(shakeTime<=0)shakeMag=0;
+ }
+ if(director.active){
+  director.draw(g,game,cam=>drawWorld(g,game,hero,foe,null,cam));
+  g.restore();
+  return;
+ }
  if(arena&&e){
    drawArena(g,z,t);paintThreats(g,game);
    if(h.y<=e.y){hero();foe(e,e.scout);}else{foe(e,e.scout);hero();}
@@ -296,6 +386,7 @@ function draw(dt){
  for(let i=effects.length-1;i>=0;i--){const f=effects[i];f.age+=dt;label(g,f.text,f.x,f.y-f.age*24,'#fff0ac',10);if(f.age>.65)effects.splice(i,1);}
  if(flash>0){g.fillStyle='#ffeeb018';g.fillRect(0,0,640,336);flash-=dt;}
  if(game.mode==='transition'){g.fillStyle='#273048';const w=Math.ceil((.54-game.fade)/.54*640);for(let y=0;y<336;y+=12)g.fillRect(y%24===0?0:640-w,y,w,12);}
+ g.restore();
 }
 let icons='';
 function hud(){
@@ -333,16 +424,25 @@ function hud(){
    $('useBtn').title='Usar '+items[d.item]+' [E]';
  }
  const msg=game.time<messageUntil?message:'';if($('toast').textContent!==msg)$('toast').textContent=msg;
+ if(!$('phaseBanner').hidden&&(game.time>=phaseBannerUntil||game.mode!=='arena'))$('phaseBanner').hidden=true;
 }
 function frame(now){
  const dt=Math.min(.045,(now-last)/1000||.016);last=now;
  if(started&&!paused){
-   const dx=held('ArrowRight','KeyD')-held('ArrowLeft','KeyA'),dy=held('ArrowDown','KeyS')-held('ArrowUp','KeyW');
-   game.tick(dt,dx,dy);if(keys.has('KeyJ')&&game.mode==='arena')game.act('attack');
-   if(game.walk&&game.time-step>.37){audio.play('step');step=game.time;}
-   audio.track(game.mode!=='arena'?'map':game.data.zone===3?'king':'arena');audio.tick();followSpeech();draw(dt);
-   display.drawImage(logical,0,0,scene.width,scene.height);hud();
-   if(game.time-lastSave>3){save();lastSave=game.time;}if(lastSave>game.time)lastSave=0;
+   if(director.active){
+     director.tick(dt,game);
+     syncCinematicUI();
+     audio.track('cinematic');audio.tick();
+     draw(dt);
+     display.drawImage(logical,0,0,scene.width,scene.height);
+   }else{
+     const dx=held('ArrowRight','KeyD')-held('ArrowLeft','KeyA'),dy=held('ArrowDown','KeyS')-held('ArrowUp','KeyW');
+     game.tick(dt,dx,dy);if(keys.has('KeyJ')&&game.mode==='arena')game.act('attack');
+     if(game.walk&&game.time-step>.37){audio.play('step');step=game.time;}
+     audio.track(game.mode!=='arena'?'map':game.data.zone===3?'king':'arena');audio.tick();followSpeech();draw(dt);
+     display.drawImage(logical,0,0,scene.width,scene.height);hud();
+     if(game.time-lastSave>3){save();lastSave=game.time;}if(lastSave>game.time)lastSave=0;
+   }
  }
  requestAnimationFrame(frame);
 }

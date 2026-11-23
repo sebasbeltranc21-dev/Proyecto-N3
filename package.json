@@ -1,0 +1,10 @@
+{
+  "name": "la-isla-de-los-ecos",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "La Isla de los Ecos — aventura pixel art con aprendizaje adaptativo y cinemáticas inmersivas.",
+  "scripts": {
+    "test": "node --test tests/*.mjs"
+  }
+}

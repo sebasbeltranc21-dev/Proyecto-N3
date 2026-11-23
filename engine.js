@@ -12,7 +12,7 @@ export const items=['Fruta','Escudo','Aturdidora','Elixir','Humo'];
 export const exits=[[2,1],[0,3],[3,0],[1,2]];
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-function fresh(){return {mapRevision:2,inside:false,scouts:[],services:[],zone:0,x:111,y:312,hp:100,weapon:0,item:0,unlocked:[0],bag:[4,1,1,1,1],cleared:[],opened:[],won:false,royalTrialWon:false};}
+function fresh(){return {mapRevision:2,inside:false,scouts:[],services:[],found:[],seenCinematics:[],zone:0,x:111,y:312,hp:100,weapon:0,item:0,unlocked:[0],bag:[4,1,1,1,1],cleared:[],opened:[],won:false,royalTrialWon:false};}
 export class Adventure {
  constructor(save,onEvent=()=>{}){
    this.data=Object.assign(fresh(),save?.data||{});this.memory=new EchoMemory(save?.memory);this.emit=onEvent;
@@ -23,10 +23,14 @@ export class Adventure {
      d.x=p.x;d.y=p.y;d.inside=false;
    }
    d.found??=[];
+   d.seenCinematics??=[];
+   this.cinematicHandler=null;
    this.hazards=[];this.encounterType='guardian';
    this.time=0;this.mode='map';this.enemy=null;this.energy=100;this.grace=0;this.face=1;this.walk=false;
    this.spawnHero();this.initPatrol();
  }
+ hasSeenCinematic(id){return this.data.seenCinematics.includes(id);}
+ markCinematic(id){if(!this.data.seenCinematics.includes(id))this.data.seenCinematics.push(id);}
  spawnHero(){const d=this.data;this.hero={x:d.x,y:d.y,dx:1,dy:0,roll:0,lock:0,hurt:0,heal:0,shield:0,haste:0,smoke:0,attack:0};}
  initPatrol(){
    const w=worlds[this.data.zone];this.patrol={...w.guardian};this.scout={...w.scout};this.patrolTime=0;
@@ -37,7 +41,15 @@ export class Adventure {
    const d=this.data,w=worlds[d.zone],door=w.houses[0];
    if(a.type==='chest'){this.openChest();return;}
    if(a.type==='throne'){
-     if(!d.unlocked.includes(4)){this.notice('Toma la Espada del Alba del cofre junto al portón');return;}
+     if(!d.unlocked.includes(4)){
+       this.notice('Toma la Espada del Alba del cofre junto al portón');
+       this.emit('cinematic',{id:'castle_locked'});
+       return;
+     }
+     if(this.cinematicHandler){
+       this.cinematicHandler('throne_intro',()=>this._enterTransition('guardian'));
+       return;
+     }
      this.beginBattle();
      return;
    }
@@ -70,7 +82,24 @@ export class Adventure {
      this.emit('save');this.emit('dialog',{name:['Alma','Sauce','Elías','Bruno'][d.zone],line:lines[d.zone]});
    }
  }
- snapshot(){return {version:1,data:{...this.data,bag:[...this.data.bag],unlocked:[...this.data.unlocked],cleared:[...this.data.cleared],opened:[...this.data.opened]},foeMemories:Object.fromEntries(Object.entries(this.foeMemories).map(([key,m])=>[key,m.snapshot()])),memory:this.memory.snapshot()};}
+ snapshot(){
+   return {
+     version:1,
+     data:{
+       ...this.data,
+       bag:[...this.data.bag],
+       unlocked:[...this.data.unlocked],
+       cleared:[...this.data.cleared],
+       opened:[...this.data.opened],
+       found:[...(this.data.found||[])],
+       scouts:[...(this.data.scouts||[])],
+       services:[...(this.data.services||[])],
+       seenCinematics:[...(this.data.seenCinematics||[])]
+     },
+     foeMemories:Object.fromEntries(Object.entries(this.foeMemories).map(([key,m])=>[key,m.snapshot()])),
+     memory:this.memory.snapshot()
+   };
+ }
  notice(s){this.emit('notice',s);}
  unlock(i){if(!this.data.unlocked.includes(i)){this.data.unlocked.push(i);this.data.weapon=i;return weapons[i].name;}return '';}
  cycleWeapon(){const d=this.data;d.weapon=d.unlocked[(d.unlocked.indexOf(d.weapon)+1)%d.unlocked.length];this.emit('sound','click');this.notice(weapons[d.weapon].name);}
@@ -105,7 +134,6 @@ export class Adventure {
    if(this.mode!=='arena')return;
    const range=dist(this.hero,this.enemy),hp=100*this.data.hp/this.maxHp;
    this.memory.observe(action,range,hp);
-   // Scouts specialize in two cues; guardians remember full action sequences.
    const cues=[['roll','atk'],['roll','heal'],['atk','heal'],['roll','atk']];
    const kind=action.split(':')[0];
    if(!this.enemy.scout||cues[this.data.zone].includes(kind))this.foeMemory.observe(action,range,hp);
@@ -113,9 +141,10 @@ export class Adventure {
  advanceRoyalPhase(){
    const e=this.enemy;
    e.phase++;
-   Object.assign(e,{phaseDelay:1.1,wind:0,release:0,stun:0,lunge:null,recovery:0,cool:0,sequence:0,move:null,guard:'',read:'Adaptando su estrategia'});
+   Object.assign(e,{phaseDelay:1.35,wind:0,release:0,stun:0,lunge:null,recovery:0,cool:0,sequence:0,move:null,guard:'',read:'Adaptando su estrategia'});
    this.hazards=[];
    this.emit('sound','adapt');
+   this.emit('royal_phase',e.phase);
    this.notice('Fase '+e.phase+' / 3 · '+royalPhases[e.phase-1].name);
    this.emit('save');
  }
@@ -123,7 +152,10 @@ export class Adventure {
    const d=this.data;d.opened.push(d.zone);const loot=this.unlock([1,2,3,4][d.zone]);
    d.bag[0]+=2;d.bag[(d.zone+1)%5]++;
    if(d.zone===3)d.hp=this.maxHp;
-   this.emit('sound','loot');this.notice((loot?loot+' · ':'')+'Fruta ×2');this.emit('save');
+   this.emit('sound',d.zone===3?'sword':'loot');
+   this.notice((loot?loot+' · ':'')+'Fruta ×2');
+   this.emit('save');
+   if(d.zone===3)this.emit('cinematic',{id:'dawn_sword'});
  }
  useItem(){
    const d=this.data,h=this.hero,i=d.item;
@@ -138,9 +170,19 @@ export class Adventure {
    if(i===4){h.smoke=3;if(this.enemy){this.enemy.guard='';this.enemy.wind=0;this.enemy.cool=.7;this.enemy.read='Predicción velada';}}
    this.emit('sound','item');this.notice(['','Escudo · 4 s','Enemigo aturdido','Elixir · 5 s','Humo · 3 s'][i]);
  }
- beginBattle(type='guardian'){
+ _enterTransition(type='guardian'){
    this.encounterType=type;
    const d=this.data;d.x=this.hero.x;d.y=this.hero.y;this.mode='transition';this.fade=.54;this.emit('sound','enter');this.emit('save');
+ }
+ beginBattle(type='guardian'){
+   const d=this.data;
+   const cineId='guardian_'+d.zone;
+   if(this.cinematicHandler&&type==='guardian'&&d.zone<3&&!this.hasSeenCinematic(cineId)){
+     this.markCinematic(cineId);
+     this.cinematicHandler(cineId,()=>this._enterTransition(type));
+     return;
+   }
+   this._enterTransition(type);
  }
  enterArena(){
    const d=this.data;this.mode='arena';this.hero.x=184;this.hero.y=203;this.hero.dx=1;this.hero.dy=0;this.hero.roll=0;this.face=1;
