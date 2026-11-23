@@ -59,6 +59,15 @@ export function drawOpponent(g,unit,z,t,arena,scout,heroX){
  const y=unit.y-bob+Math.round(charge*crouch)-lift;
  if(e?.lunge)for(let i=1;i<=3;i++)rect(g,'#dfdf955e',x-face*(12+i*5),y-8-i*3,5,2);
  shadow(g,unit.x,unit.y,scout?9:z===3?18:13);
+ if(e?.phase>=2){
+  const color=e.phase===3?'#efabcf':'#a0e5cb';
+  for(let i=0;i<10;i++){
+   const angle=i*Math.PI/5+t*(e.phase===3?2.3:1.4);
+   const px=unit.x+Math.cos(angle)*21,py=unit.y+Math.sin(angle)*6;
+   rect(g,'#302d3b',px-1,py-1,4,3);
+   rect(g,color,px,py,2,1);
+  }
+ }
  nativeActor(g,'foes',set*16+z*4+frame,x,y,face);
  if(arena)armedEnemy(g,e,z,t,{x,y,frame});
 }

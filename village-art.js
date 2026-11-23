@@ -1,4 +1,4 @@
-import {WORLD,worlds,riverX,footbridges,discoveries,townsperson,interaction} from './world.js';
+import {WORLD,worlds,riverX,footbridges,discoveries,townsperson,interaction,throneGate} from './world.js';
 import {rect,oval,rng,label,sign} from './art.js';
 import {material,stamp,tile} from './atlas.js';
 import {cameraPosition} from './speech.js';
@@ -141,7 +141,7 @@ export function drawWorld(g,game,drawHero,drawFoe,speech){
  }
  const entries=[...w.houses,...w.props,...w.people.map((n,i)=>({...townsperson(n,t,i),walkIndex:i})),{...w.chest,type:'chest'},{...h,type:'hero'}];
  discoveries[z].forEach((a,i)=>{if(!d.found.includes(z*2+i))entries.push({...a,type:'relic'});});
- if(!d.cleared.includes(z))entries.push({...game.patrol,type:'guardian'});if(!d.scouts.includes(z))entries.push({...game.scout,type:'scout'});
+ if(z!==3&&!d.cleared.includes(z))entries.push({...game.patrol,type:'guardian'});if(!d.scouts.includes(z))entries.push({...game.scout,type:'scout'});
  sign(g,33,333,'left','OESTE');sign(g,WORLD.width-37,333,'right','ESTE');
  for(const o of entries.sort((a,b)=>a.y-b.y)){
   if(o.x<cx-95||o.x>cx+735||o.y<cy-10||o.y>cy+470)continue;
@@ -149,11 +149,15 @@ export function drawWorld(g,game,drawHero,drawFoe,speech){
    case 'hero':drawHero();break;
    case 'guardian':case 'scout':drawFoe(o,o.type==='scout');break;
    case 'npc':drawResident(g,o,t,speech?.name===o.name?h:null);break;
-   case 'chest':stamp(g,'props',d.opened.includes(z)?13:12,o.x,o.y,28);break;
+   case 'chest':
+    stamp(g,'props',d.opened.includes(z)?13:12,o.x,o.y,28);
+    if(z===3&&!d.opened.includes(z))label(g,'✦',o.x,o.y-27+Math.sin(t*3)*3,'#ffdf96',12);
+    break;
    case 'relic':stamp(g,'props',[4,5,11,9][z],o.x,o.y,20);label(g,'✦',o.x+8,o.y-17+Math.sin(t*3)*2,'#ffdc78',9);break;
    default:if(w.houses.includes(o))drawPlace(g,o,z);else drawProp(g,o);
   }
  }
+ if(z===3&&!d.royalTrialWon)label(g,'TRONO',throneGate.x,throneGate.y-41,'#ffcf8c',9);
  if(request&&!speech)label(g,'J · '+request.title,h.x,h.y-54,'#fff0ba',9);
  g.restore();
 }
@@ -163,6 +167,6 @@ export function drawMinimap(g,game){
  rect(g,'#343e48',x-2,y-2,w+4,h+4);rect(g,'#c3aa7d',x-1,y-1,w+2,h+2);rect(g,'#526c5d',x,y,w,h);
  rect(g,'#70b3ab',x+30,y,3,h);rect(g,'#c3b182',x,y+14,w,2);
  const dot=(o,c)=>rect(g,c,x+o.x/WORLD.width*(w-3),y+o.y/WORLD.height*(h-3),3,3);
- dot(worlds[z].houses[0],'#f2cc89');if(!d.opened.includes(z))dot(game.chest,'#d7a659');if(!d.cleared.includes(z))dot(game.patrol,'#ef8070');dot(game.hero,'#fffbe1');
+ dot(worlds[z].houses[0],'#f2cc89');if(!d.opened.includes(z))dot(game.chest,'#d7a659');if(z===3&&!d.royalTrialWon)dot(throneGate,'#ef8070');else if(!d.cleared.includes(z))dot(game.patrol,'#ef8070');dot(game.hero,'#fffbe1');
 }
 

@@ -56,6 +56,7 @@ export function habit(action) {
   const [move,arg,side] = action.split(':');
   const direction = {E:'derecha',O:'izquierda',N:'arriba',S:'abajo'};
   if (move === 'roll') return 'Esquive hacia ' + direction[arg];
+  if (move === 'step') return 'Ruta hacia ' + direction[arg];
   if (move === 'heal') return 'Intento de curación';
-  return ['Espada','Caballero','Dagas','Martillo','Rúnica'][arg] + ' desde ' + direction[side];
+  return ['Espada','Caballero','Dagas','Martillo','Alba'][arg] + ' desde ' + direction[side];
 }

@@ -1,6 +1,16 @@
 export const health=[100,165,250,460];
+export const royalHealth=600;
 export const scoutNames=['Vigía de la era','Mariposa de cobre','Aprendiz de basalto','Guardia del foso'];
+export const royalPhases=[
+ {name:'La corona', wind:1, cooldown:.42, damage:2, confidence:.65, lead:40, speed:86,
+  cycle:['dash','lance','sweep','slam'],counter:['lance','dash','sweep']},
+ {name:'El espejo', wind:.90, cooldown:.30, damage:5, confidence:.54, lead:54, speed:94,
+  cycle:['fan','hook','slam','dash'],counter:['fan','dash','hook']},
+ {name:'El último eco', wind:.84, cooldown:.24, damage:8, confidence:.46, lead:66, speed:104,
+  cycle:['edict','dash','slam','fan','hook'],counter:['edict','dash','slam']}
+];
 export const moves={
+ edict:{name:'Juicio de los ecos',wind:1.08,range:247,damage:23},
  lance:{name:'Jabalina de zarza',wind:.64,range:248,damage:12},
  sweep:{name:'Sable en arco',wind:.52,range:68,damage:16},
  fan:{name:'Abanico de cuchillas',wind:.82,range:265,damage:13},
@@ -18,15 +28,13 @@ export const moves={
   {cycle:['hook','fan','bloom'],counter:['fan','hook','bloom']},
   {cycle:['lance','slam','bloom'],counter:['bloom','lance','slam']},
   {cycle:['slam','bloom','sweep'],counter:['bloom','bloom','slam']},
-  {cycle:['dash','sweep','hook'],counter:['hook','dash','sweep']},
-  {cycle:['dash','lance','slam','sweep'],counter:['lance','dash','slam']}
+  {cycle:['dash','sweep','hook'],counter:['hook','dash','sweep']}
  ];
  export function chooseMove(enemy,z,token=''){
-  const style=styles[z*2+(enemy.scout?0:1)];
-  const royal=z===3&&!enemy.scout&&enemy.hp<=enemy.max/2;
-  const cycle=royal?['fan','dash','slam','lance','sweep','hook']:style.cycle;
-  const response=style.counter[token.startsWith('roll:')?0:token==='heal'?1:2];
-  if(token && enemy.sequence%3!==2 && enemy.move!==response)return response;
+  const {cycle,counter}=royalPhases[enemy.phase-1]??styles[z*2+(enemy.scout?0:1)];
+  const response=counter[token.startsWith('roll:')?0:token==='heal'?1:2];
+  if(token && enemy.sequence%3!==2 && enemy.move!==response &&
+     !(enemy.phase===3&&enemy.sequence%3===0))return response;
   let index=enemy.sequence%cycle.length;
   if(cycle[index]===enemy.move)index=(index+1)%cycle.length;
   return cycle[index];
@@ -42,8 +50,13 @@ export function strike(game,damage){
 export function release(game){
  const e=game.enemy,kind=e.move||'dash',d=moves[kind],target=e.target,h=game.hero;
  const angle=Math.atan2(target.y-e.y,target.x-e.x);
- const damage=e.scout?Math.round(d.damage*.7):d.damage+(game.data.zone===3?3:0);
- if(kind==='bloom'){
+ const royal=royalPhases[e.phase-1];
+ const damage=e.scout?Math.round(d.damage*.7):d.damage+(royal?.damage??0);
+ if(kind==='edict'){
+  for(const [i,rune] of e.runes.entries()){
+   game.hazards.push({...rune,kind,age:0,delay:i*.09,life:.43+i*.09,damage});
+  }
+ }else if(kind==='bloom'){
   game.hazards.push({kind,x:target.x,y:target.y,age:0,life:.38,damage});
  }else if(kind==='hook'){
   game.hazards.push({kind,x:e.x,y:e.y,originX:e.x,originY:e.y,angle,speed:310,age:0,life:1.5,damage});
@@ -55,10 +68,10 @@ export function release(game){
  }else if(kind==='sweep'){
   game.hazards.push({kind,x:e.x,y:e.y,angle,age:0,life:.24,damage});
  }else{
-  e.lunge={target:{...target},distance:96,damage};
+  e.lunge={target:{...target},distance:e.phase===3?125:96,damage};
   if(span(e,h)<30)strike(game,damage);
  }
- e.release=.25;e.cool=e.scout?.85:.45;e.recovery=kind==='slam'?.85:.54;e.sequence++;
+ e.release=.25;e.cool=royal?.cooldown??(e.scout?.85:.45);e.recovery=kind==='slam'?.85:.54;e.sequence++;
  game.emit('sound',kind==='slam'?'hit':'attack');
 }
 export function stepHazards(game,dt){
@@ -67,7 +80,8 @@ export function stepHazards(game,dt){
   if(a.life<=0)continue;
   a.age+=dt;a.life-=dt;
   let hit=false;
-  if(a.kind==='bloom'){hit=span(h,a)<24;}
+  if(a.kind==='edict'){hit=a.age>=a.delay&&span(h,a)<20;}
+  else if(a.kind==='bloom'){hit=span(h,a)<24;}
   else if(a.kind==='hook'){
    const travel=150*Math.sin(Math.PI*Math.min(1,a.age/1.5));
    a.x=a.originX+travel*Math.cos(a.angle);a.y=a.originY+travel*Math.sin(a.angle);

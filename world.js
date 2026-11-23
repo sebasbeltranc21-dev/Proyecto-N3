@@ -14,7 +14,7 @@ const locals=[
  [['Inés','El molino gira incluso cuando el viento para. Bramble tiene su sello al otro lado del río.'],['Teo','La posada huele a pan. Acércate a la puerta azul y pulsa J para descansar.'],['Mara','El guardabrotes guarda una jabalina bajo las hojas. Sal de su línea cuando la levante.']],
  [['Lía','Cultivo hongos con luz propia. En la botica guardamos fruta para el camino.'],['Jun','Mira las alas de Lumbre. Cuando se abren, vienen tres cuchillas.'],['Tilo','Las motas doradas vuelven al claro cada anochecer. Lumbre las sigue.']],
  [['Uma','Encontramos un mapa bajo el mosaico. El archivo conserva las notas de los primeros viajeros.'],['Oriel','Los canteros dejaban agua junto al puente. Así encontraban la cantera al regresar.'],['Sira','Cuando Talos planta los pies, levanta el martillo. Rueda al atravesar la onda.']],
- [['Ada','Antes de la corona yo hacía hebillas. Ahora reparo los escudos de la guardia.'],['Nilo','El rey cambia de arma al perder media vida. Mira su mano antes de acercarte.'],['Sol','A mis espaldas está el patio. Recupera el aliento antes de entrar.']]
+ [['Ada','Antes de la corona yo hacía hebillas. Ahora reparo los escudos de la guardia.'],['Nilo','La Espada del Alba está en el cofre junto al portón. Llévala antes de cruzar.'],['Sol','El portón lleva al trono. El Rey te espera dentro y recuerda hacia dónde esquivas.']]
 ];
 const layouts=[
  [[160,258,'inn'],[374,205,'house'],[503,337,'stall'],[934,223,'mill'],[1103,446,'barn']],
@@ -39,8 +39,9 @@ export const worlds=layouts.map((buildings,z)=>{
  const houses=[...buildings,...sideStreets[z]].map(([x,y,type],i)=>({x,y,type,width:sizes[type],solid:true,door:i===0}));
  const props=decorations[z].map(([type,x,y])=>({type,x,y,width:({fence:65,garden:58,cart:27,rack:29,well:26,fountain:37,mosaic:0})[type]??19,solid:type!=='mosaic'}));
  const people=locals[z].map(([name,line],i)=>({type:'npc',name,line,style:z*3+i,x:[246,470,996][i],y:[310,254,351][i]}));
- return {houses,props,people,guardian:{x:1084,y:312},scout:{x:838,y:421},chest:{x:431,y:433}};
+ return {houses,props,people,guardian:{x:1084,y:312},scout:z===3?{x:1058,y:476}:{x:838,y:421},chest:z===3?{x:861,y:256}:{x:431,y:433}};
 });
+export const throneGate={x:928,y:246};
 export function riverX(y){return Math.round(655+24*Math.sin((y-314)/95));}
 export function canWalk(z,x,y){
  if(Math.abs(x-riverX(y))<30&&Math.abs(y-WORLD.road)>24&&Math.abs(y-footbridges[z])>13)return false;
@@ -67,7 +68,8 @@ export function interaction(game){
  }
  const w=worlds[d.zone];
  const candidates=[{...w.houses[0],y:w.houses[0].y+6,type:'door',title:'ENTRAR'},...w.people.map((n,i)=>({...townsperson(n,game.time,i),title:'HABLAR'}))];
- if(!d.opened.includes(d.zone))candidates.push({...w.chest,type:'chest',title:'ABRIR'});
+ if(!d.opened.includes(d.zone))candidates.push({...w.chest,type:'chest',title:d.zone===3?'TOMAR ESPADA':'ABRIR'});
+ if(d.zone===3&&!d.royalTrialWon)candidates.push({...throneGate,type:'throne',title:'ENTRAR AL TRONO'});
  for(const [i,o] of discoveries[d.zone].entries())if(!d.found.includes(d.zone*2+i))candidates.push({...o,id:d.zone*2+i,type:'find',title:'EXAMINAR'});
  return candidates.map(o=>({...o,distance:Math.hypot(h.x-o.x,h.y-o.y)})).filter(o=>o.distance<35).sort((a,b)=>a.distance-b.distance)[0];
 }

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Adventure} from '../engine.js';
+import {Adventure,weapons} from '../engine.js';
 import {EchoMemory} from '../learning.js';
-import {WORLD,worlds,canWalk,discoveries} from '../world.js';
+import {WORLD,worlds,canWalk,discoveries,throneGate} from '../world.js';
 import {release,stepHazards,chooseMove} from '../arsenal.js';
 
 test('Learns alternating dodges, scores before observation, and transfers history',()=>{
@@ -56,9 +56,18 @@ test('Walks all four regions, opens a chest, returns from arenas and wins the cr
  exitZone(g,-1,0);exitZone(g,-1,2);encounter(g);duel(g);
  const save=JSON.parse(JSON.stringify(g.snapshot()));
  const loaded=new Adventure(save);assert.equal(loaded.memory.samples,g.memory.samples);
- exitZone(loaded,-1,3);encounter(loaded);
+ exitZone(loaded,-1,3);
+ waypoint(loaded,throneGate.x,WORLD.road);
+ waypoint(loaded,throneGate.x,throneGate.y+13);
+ loaded.act('attack');assert.equal(loaded.mode,'map','The sword comes before the duel');
+ waypoint(loaded,loaded.chest.x,throneGate.y+13);
+ loaded.act('attack');assert.equal(loaded.data.weapon,4);
+ assert.ok(weapons[4].damage>Math.max(...weapons.slice(0,4).map(weapon=>weapon.damage)));
+ waypoint(loaded,throneGate.x,throneGate.y+13);
+ loaded.act('attack');assert.equal(loaded.mode,'transition');
+ until(loaded,()=>loaded.mode==='arena',()=>[0,0]);
  const inherited=loaded.memory.samples;duel(loaded);
- assert.ok(loaded.memory.samples>inherited);assert.equal(loaded.data.won,true);
+ assert.ok(loaded.memory.samples>inherited);assert.equal(loaded.data.royalTrialWon,true);
 });
 test('The king aims at the learned dodge and smoke breaks the lock',()=>{
  const g=new Adventure();g.data.zone=3;
@@ -110,7 +119,7 @@ test('Scout victories and discoveries reward supplies without granting seals or 
  g.winBattle();assert.deepEqual(g.data.scouts,[0]);assert.deepEqual(g.data.cleared,[]);
 });
 
-test('Distinct weapon hitboxes, active dodges, and the second royal arsenal',()=>{
+test('Distinct weapon hitboxes, active dodges, and all three royal arsenals',()=>{
  for(const [kind,count] of [['lance',1],['fan',3],['slam',1],['sweep',1]]){
    const g=new Adventure();g.enterArena();const e=g.enemy;
    Object.assign(e,{x:250,y:200,target:{x:300,y:200},move:kind});
@@ -119,8 +128,9 @@ test('Distinct weapon hitboxes, active dodges, and the second royal arsenal',()=
    for(let i=0;i<40;i++)stepHazards(g,frame);
    assert.ok(g.data.hp<old,kind+' should reach its target');
  }
- const g=new Adventure();g.data.zone=3;g.enterArena();assert.equal(g.enemy.max,460);
- assert.equal(chooseMove(g.enemy,3),'dash');g.enemy.hp=200;assert.equal(chooseMove(g.enemy,3),'fan');
+ const g=new Adventure();g.data.zone=3;g.enterArena();assert.equal(g.enemy.max,600);
+ assert.equal(chooseMove(g.enemy,3),'dash');g.enemy.phase=2;assert.equal(chooseMove(g.enemy,3),'fan');
+ g.enemy.phase=3;assert.equal(chooseMove(g.enemy,3),'edict');
  Object.assign(g.enemy,{x:250,y:200,target:{x:300,y:200},move:'sweep'});Object.assign(g.hero,{x:290,y:200,roll:.23});
  release(g);stepHazards(g,.1);assert.equal(g.data.hp,100);
 });
@@ -149,4 +159,38 @@ test('Returning blade doubles back and the marked thorns leave time to step asid
  assert.ok(blade.x>380);for(let i=0;i<42;i++)stepHazards(g,frame);assert.ok(blade.x<260);
  e.move='bloom';release(g);g.hero.x=340;g.hero.y=250;stepHazards(g,frame);assert.equal(g.data.hp,100);
  g.hero.y=200;stepHazards(g,frame);assert.ok(g.data.hp<100);
+});
+
+test('Royal phase thresholds cannot be skipped and the last phase predicts a walking route',()=>{
+ const g=new Adventure();g.data.zone=3;g.data.weapon=4;g.enterArena();
+ const e=g.enemy;
+ Object.assign(g.hero,{x:285,y:205});Object.assign(e,{x:315,y:205,hp:405});
+ g.act('attack');
+ assert.equal(e.hp,400);assert.equal(e.phase,2);assert.ok(e.phaseDelay>0);
+ assert.equal(chooseMove(e,3),'fan');
+ g.hero.lock=0;g.act('attack');assert.equal(e.hp,400);
+ for(let i=0;i<85;i++)g.tick(frame,1,0);
+ assert.ok(g.royalSteps.samples>=3);
+ Object.assign(e,{hp:206,phaseDelay:0,guard:'',wind:0});
+ Object.assign(g.hero,{x:e.x-30,y:e.y,lock:0});g.act('attack');
+ assert.equal(e.hp,200);assert.equal(e.phase,3);
+ e.phaseDelay=0;g.hero.x=280;g.hero.y=203;e.x=325;e.y=203;e.cool=0;
+ g.fight(frame);
+ assert.equal(e.move,'edict');assert.match(e.read,/Ruta hacia derecha/);
+ assert.equal(e.runes.length,3);assert.ok(e.runes.every(rune=>rune.x>g.hero.x+40));
+ release(g);
+ Object.assign(g.hero,{x:e.runes[0].x,y:e.runes[0].y});
+ const hp=g.data.hp;stepHazards(g,frame);
+ assert.ok(g.data.hp<hp,'The marked ground must resolve the displayed attack');
+});
+test('Previous winners can challenge the three-phase King without losing their equipment',()=>{
+ const legacy=new Adventure().snapshot();
+ Object.assign(legacy.data,{zone:3,won:true,cleared:[0,1,2,3],opened:[3],unlocked:[0,4],weapon:4});
+ const g=new Adventure(legacy);
+ Object.assign(g.hero,throneGate);
+ g.act('attack');assert.equal(g.mode,'transition');
+ g.enterArena();assert.equal(g.enemy.phase,1);assert.equal(g.data.weapon,4);
+ g.retry();assert.equal(g.mode,'map');
+ assert.ok(Math.abs(g.hero.x-throneGate.x)<100);
+ assert.equal(g.data.royalTrialWon,false);
 });

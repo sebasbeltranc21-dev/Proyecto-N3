@@ -27,7 +27,7 @@ function sword(g,variant){
   const bladeColors=[
     ['#708194','#bbcdd6','#fff6dc'],
     ['#416783','#8fc0d3','#e5f8ff'],
-    ['#2c6b64','#67d9a3','#e2ffe3']
+    ['#946242','#e6b569','#fff0c4']
   ];
   const [shade,metal,light]=bladeColors[variant];
   const blade=[
@@ -53,10 +53,10 @@ function sword(g,variant){
   rect(g,'#fff1af',4,19,2,2);
   if(variant===1)rect(g,'#87d4ef',10,13,2,2);
   if(variant===2){
-    rect(g,'#e7ff99',10,13,3,2);
-    rect(g,'#adfff1',16,7,2,2);
-    rect(g,'#adfff1',5,5,1,3);
-    rect(g,'#adfff1',4,6,3,1);
+    rect(g,'#fff0ae',10,13,3,2);
+    rect(g,'#ffe591',16,7,2,2);
+    rect(g,'#ffe591',5,5,1,3);
+    rect(g,'#ffe591',4,6,3,1);
   }
 }
 

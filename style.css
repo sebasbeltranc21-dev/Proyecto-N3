@@ -235,3 +235,10 @@ html.playing-full,html.playing-full body{overflow:hidden}
   .menuSeals small{font-size:10px}
   #cover .coverText{margin-left:4%}
 }
+
+#royalPhase{display:block;color:#ffe2a3;font-size:.85em;margin:4px 0}
+#enemyHud.royal i{position:relative}
+#enemyHud.royal i::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent calc(33.33% - 1px),#18242e calc(33.33% - 1px) 33.33%,transparent 33.33% calc(66.67% - 1px),#18242e calc(66.67% - 1px) 66.67%,transparent 66.67%);
+}

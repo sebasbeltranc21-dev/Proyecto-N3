@@ -15,7 +15,11 @@ function blade(g,kind,x,y,size,angle){
  const pt=(u,v)=>[Math.round(x+u*c-v*s),Math.round(y+u*s+v*c)];
  const shape=(color,points)=>poly(g,color,points.map(p=>pt(...p)));
  shape('#514439',[[-8,-2],[23,-2],[23,2],[-8,2]]);
- if(kind==='hook'){
+ if(kind==='edict'){
+ shape('#473044',[[-8,-3],[25,-4],[37,0],[25,4],[-8,3]]);
+ shape('#e0ab7a',[[3,-2],[27,-3],[35,0],[24,2],[3,1]]);
+ shape('#e087da',[[1,-7],[7,-5],[9,0],[7,5],[1,7],[3,0]]);
+ }else if(kind==='hook'){
  shape('#6f4660',[[0,0],[12,-9],[27,-6],[15,-3],[6,4]]);shape('#ffda81',[[1,0],[12,-8],[26,-6],[13,-5]]);
  }else if(kind==='bloom'){
  shape('#57874c',[[8,1],[18,-7],[20,-3],[30,-8],[24,1],[14,4]]);
@@ -64,13 +68,13 @@ const heroArms=[
  ],
  [ // Runic sword: a stepped edge and bright inlaid runes.
   ['#26343b',[[1,-4],[12,-5],[16,-8],[23,-4],[30,-6],[39,0],[30,6],[23,4],[16,8],[12,5],[1,4]]],
-  ['#448778',[[3,-3],[12,-4],[16,-7],[23,-3],[30,-5],[37,0],[30,5],[23,3],[16,7],[12,4],[3,3]]],
-  ['#89bea0',[[3,-2],[12,-3],[16,-6],[23,-2],[30,-4],[37,0],[30,0],[23,1],[16,4],[12,1],[3,1]]],
-  ['#e1e7a4',[[14,-1],[18,-1],[18,1],[14,1]]],
-  ['#e1e7a4',[[25,-1],[29,-1],[29,1],[25,1]]]
+  ['#946242',[[3,-3],[12,-4],[16,-7],[23,-3],[30,-5],[37,0],[30,5],[23,3],[16,7],[12,4],[3,3]]],
+  ['#edc682',[[3,-2],[12,-3],[16,-6],[23,-2],[30,-4],[37,0],[30,0],[23,1],[16,4],[12,1],[3,1]]],
+  ['#fff1b4',[[14,-1],[18,-1],[18,1],[14,1]]],
+  ['#fff1b4',[[25,-1],[29,-1],[29,1],[25,1]]]
  ]
 ];
-const heroGuards=['#dea653','#82c1ee','#d4b179','#e8b56a','#a9eeb4'];
+const heroGuards=['#dea653','#82c1ee','#d4b179','#e8b56a','#e7aa62'];
 function playerSteel(g,weapon,x,y,scale,angle,face){
  const c=Math.cos(angle)*scale,s=Math.sin(angle)*scale;
  const shape=(color,points)=>poly(g,color,points.map(([u,v])=>[
@@ -126,7 +130,7 @@ export function heroStrike(g,weapon,x,y,face,reach,remaining){
   return;
  }
  const twin=weapon===2;
- const color=['#f2d8a1','#8dd4f5','#86e9c7','#f0cd92','#9cf6a6'][weapon];
+ const color=['#f2d8a1','#8dd4f5','#86e9c7','#f0cd92','#ffd28a'][weapon];
  if(twin){
   for(let i=0;i<9;i++){
    const dx=(i-4)*2,dy=(i-4)*2;
@@ -153,11 +157,18 @@ export function armedEnemy(g,e,z,t,pose){
  const grip=(e.scout?10:z===3?17:14)+(pose.frame===3?6:pose.frame===2?-4:0);
  blade(g,kind,pose.x+face*grip,pose.y-(e.scout?20:z===3?33:26)+(active?Math.sin(t*20):0),e.scout?.73:z===3?1.12:.89,angle);
 }
+function drawRune(g,x,y,color,radius){
+ ring(g,x,y,radius,color,3);
+ stroke(g,color,x-7,y,x+7,y);
+ stroke(g,color,x,y-7,x,y+7);
+}
 export function paintThreats(g,game){
  const e=game.enemy;if(!e)return;
  if(e.wind>0&&e.target){
  const c=Math.floor(game.time*6)%2?'#fff2a8':'#ffac75',a=Math.atan2(e.target.y-e.y,e.target.x-e.x),kind=e.move;
- if(kind==='bloom'){ring(g,e.target.x,e.target.y,23,c,3);}
+ if(kind==='edict'){
+   for(const rune of e.runes)drawRune(g,rune.x,rune.y,c,20);
+ }else if(kind==='bloom'){ring(g,e.target.x,e.target.y,23,c,3);}
  else if(kind==='hook'){for(let j=12;j<151;j+=10)marker(g,e.x+Math.cos(a)*j,e.y+Math.sin(a)*j,c);}
  else if(kind==='slam'){ring(g,e.x,e.y,32,c,3);ring(g,e.x,e.y,62,c,4);}
  else if(kind==='sweep'){
@@ -170,7 +181,14 @@ export function paintThreats(g,game){
  }
  }
  for(const h of game.hazards){
- if(h.kind==='bloom'){
+ if(h.kind==='edict'){
+  const age=h.age-h.delay;
+  drawRune(g,h.x,h.y,age<0?'#df9dd7':'#ffcca4',20);
+  if(age>=0)for(let i=-2;i<=2;i++){
+   const height=Math.max(1,Math.round((1-age/.43)*(24-Math.abs(i)*5)));
+   rect(g,i%2?'#eda1d9':'#fff1bb',h.x+i*6,h.y-height,3,height);
+  }
+ }else if(h.kind==='bloom'){
  const height=Math.round(23*Math.sin(Math.min(1,h.age/.38)*Math.PI));
  for(const dx of [-16,-8,0,8,16])poly(g,'#537544',[[h.x+dx-3,h.y+3],[h.x+dx+3,h.y-height],[h.x+dx+4,h.y+3]]);
  }else if(h.kind==='hook'){blade(g,'hook',h.x,h.y-4,.85,h.age*18);}

@@ -1,18 +1,18 @@
 import {EchoMemory,sector,directions,habit} from './learning.js';
-import {WORLD,worlds,canWalk,safePosition,interaction,roomNames} from './world.js';
-import {health,moves,chooseMove,release,stepHazards,strike} from './arsenal.js';
+import {WORLD,worlds,canWalk,safePosition,interaction,roomNames,throneGate} from './world.js';
+import {health,moves,chooseMove,release,stepHazards,strike,royalPhases,royalHealth} from './arsenal.js';
 export const weapons=[
  {name:'Espada de Viajero',short:'Viajero',damage:15,reach:56,delay:.39,cost:8},
  {name:'Espada de Caballero',short:'Caballero',damage:22,reach:61,delay:.46,cost:10},
  {name:'Dagas del Viento',short:'Dagas',damage:11,reach:48,delay:.19,cost:4},
  {name:'Martillo del Ocaso',short:'Martillo',damage:37,reach:58,delay:.76,cost:15},
- {name:'Espada Rúnica',short:'Rúnica',damage:26,reach:74,delay:.50,cost:10}
+ {name:'Espada del Alba',short:'Alba',damage:46,reach:78,delay:.48,cost:11}
 ];
 export const items=['Fruta','Escudo','Aturdidora','Elixir','Humo'];
 export const exits=[[2,1],[0,3],[3,0],[1,2]];
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-function fresh(){return {mapRevision:2,inside:false,scouts:[],services:[],zone:0,x:111,y:312,hp:100,weapon:0,item:0,unlocked:[0],bag:[4,1,1,1,1],cleared:[],opened:[],won:false};}
+function fresh(){return {mapRevision:2,inside:false,scouts:[],services:[],zone:0,x:111,y:312,hp:100,weapon:0,item:0,unlocked:[0],bag:[4,1,1,1,1],cleared:[],opened:[],won:false,royalTrialWon:false};}
 export class Adventure {
  constructor(save,onEvent=()=>{}){
    this.data=Object.assign(fresh(),save?.data||{});this.memory=new EchoMemory(save?.memory);this.emit=onEvent;
@@ -36,6 +36,11 @@ export class Adventure {
  interact(a){
    const d=this.data,w=worlds[d.zone],door=w.houses[0];
    if(a.type==='chest'){this.openChest();return;}
+   if(a.type==='throne'){
+     if(!d.unlocked.includes(4)){this.notice('Toma la Espada del Alba del cofre junto al portón');return;}
+     this.beginBattle();
+     return;
+   }
    if(a.type==='find'){
      d.found.push(a.id);d.bag[a.item]++;this.emit('sound','loot');this.notice(a.name+' · '+items[a.item]+' +1');this.emit('save');return;
    }
@@ -58,7 +63,7 @@ export class Adventure {
       'Hay sopa caliente y una cama junto a la ventana. Recuperaste toda la vida.',
       used?'Ya recogiste la cosecha de hoy. El claro está al otro lado del puente.':'Llévate tres frutas del huerto para el camino.',
       'La losa dice que el martillo de Talos levanta una onda circular. Rueda hacia el centro al cruzarla.',
-      used?'Tu escudo ya está reparado. El Rey cambia de arma a media vida.':'Reforcé un escudo mágico para ti. Equípalo antes de entrar al patio.'
+      used?'Tu escudo ya está reparado. El Rey cambia su forma de luchar dos veces.':'Reforcé un escudo mágico para ti. Equípalo antes de entrar al patio.'
      ];
      if(d.zone===0)d.hp=this.maxHp;
      if(!used){if(d.zone===1)d.bag[0]+=3;if(d.zone===3)d.bag[1]++;d.services.push(d.zone);}
@@ -82,17 +87,19 @@ export class Adventure {
    }
    if(key!=='attack')return;
    if(this.mode==='map'){const a=interaction(this);if(a){this.interact(a);return;}}
-   if(this.energy<w.cost)return;
+   if(this.energy<w.cost||this.enemy?.phaseDelay>0)return;
    this.energy-=w.cost;h.attackWeapon=d.weapon;h.attack=.23;h.lock=w.delay*(h.haste>0?.75:1);this.emit('sound','attack');
    if(this.mode!=='arena')return;
    const e=this.enemy,side=sector(h.x-e.x,h.y-e.y),token='atk:'+d.weapon+':'+side;
    this.learn(token);if(dist(h,e)>w.reach)return;
    this.face=e.x<h.x?-1:1;
    const guarded=e.guard===token&&e.stun<=0&&e.recovery<=0&&h.smoke<=0;
-   const damage=Math.round(w.damage*(h.haste>0?1.3:1)*(guarded?.32:1));
+   const healthFloor=e.phase&&e.phase<3?e.max*(3-e.phase)/3:0;
+   const damage=Math.min(e.hp-healthFloor,Math.round(w.damage*(h.haste>0?1.3:1)*(guarded?.32:1)));
    e.hp-=damage;e.hurt=.14;this.emit('effect',{x:e.x,y:e.y-33,text:guarded?'BLOQUEO · '+damage:'−'+damage});
    this.emit('sound','hit');
    if(e.hp<=0)this.winBattle();
+   else if(healthFloor&&e.hp===healthFloor)this.advanceRoyalPhase();
  }
  learn(action){
    if(this.mode!=='arena')return;
@@ -103,9 +110,20 @@ export class Adventure {
    const kind=action.split(':')[0];
    if(!this.enemy.scout||cues[this.data.zone].includes(kind))this.foeMemory.observe(action,range,hp);
  }
+ advanceRoyalPhase(){
+   const e=this.enemy;
+   e.phase++;
+   Object.assign(e,{phaseDelay:1.1,wind:0,release:0,stun:0,lunge:null,recovery:0,cool:0,sequence:0,move:null,guard:'',read:'Adaptando su estrategia'});
+   this.hazards=[];
+   this.emit('sound','adapt');
+   this.notice('Fase '+e.phase+' / 3 · '+royalPhases[e.phase-1].name);
+   this.emit('save');
+ }
  openChest(){
    const d=this.data;d.opened.push(d.zone);const loot=this.unlock([1,2,3,4][d.zone]);
-   d.bag[0]+=2;d.bag[(d.zone+1)%5]++;this.emit('sound','loot');this.notice((loot?loot+' · ':'')+'Fruta ×2');this.emit('save');
+   d.bag[0]+=2;d.bag[(d.zone+1)%5]++;
+   if(d.zone===3)d.hp=this.maxHp;
+   this.emit('sound','loot');this.notice((loot?loot+' · ':'')+'Fruta ×2');this.emit('save');
  }
  useItem(){
    const d=this.data,h=this.hero,i=d.item;
@@ -126,21 +144,30 @@ export class Adventure {
  }
  enterArena(){
    const d=this.data;this.mode='arena';this.hero.x=184;this.hero.y=203;this.hero.dx=1;this.hero.dy=0;this.hero.roll=0;this.face=1;
-   const scout=this.encounterType==='scout',max=scout?Math.round(health[d.zone]*.34):health[d.zone];this.hazards=[];this.enemy={x:445,y:203,hp:max,max,scout,sequence:0,release:0,move:null,cool:.58,wind:0,guard:'',stun:0,recovery:0,hurt:0,read:'Reuniendo recuerdos',face:-1,walk:false};
+   const scout=this.encounterType==='scout',royal=d.zone===3&&!scout;
+   const max=scout?Math.round(health[d.zone]*.34):royal?royalHealth:health[d.zone];this.hazards=[];this.enemy={x:445,y:203,hp:max,max,scout,sequence:0,release:0,move:null,cool:.58,wind:0,guard:'',stun:0,recovery:0,hurt:0,read:'Reuniendo recuerdos',face:-1,walk:false};
    this.foeMemory=this.foeMemories[d.zone+'-'+this.encounterType] ||= new EchoMemory();
-   this.foeMemory.recent=[];this.memory.recent=[];this.emit('arena');this.notice(d.zone===3?'El Rey heredó '+this.memory.samples+' recuerdos':'¡Encuentro! J ataca · Espacio rueda');
+   this.foeMemory.recent=[];this.memory.recent=[];
+   if(royal){
+     this.enemy.phase=1;this.enemy.phaseDelay=0;
+     this.royalSteps=this.foeMemories['royal-steps'] ||= new EchoMemory();
+     this.royalSteps.recent=[];
+     this.stepSample={x:this.hero.x,y:this.hero.y,time:0};
+   }
+   this.emit('arena');
+   this.notice(this.enemy.phase?'Fase 1 / 3 · '+royalPhases[0].name:'¡Encuentro! J ataca · Espacio rueda');
  }
  winBattle(){
    const d=this.data;const scout=this.enemy.scout;this.enemy=null;this.hazards=[];
    if(scout){d.scouts.push(d.zone);d.bag[0]++;d.bag[1]++;this.spawnHero();this.mode='map';this.grace=1;this.notice('Patrulla vencida · fruta y escudo');this.emit('sound','loot');this.emit('save');return;}
-   d.cleared.push(d.zone);d.hp=Math.min(this.maxHp,d.hp+47);this.energy=100;d.bag[0]++;d.bag[2]++;
+   if(!d.cleared.includes(d.zone))d.cleared.push(d.zone);d.hp=Math.min(this.maxHp,d.hp+47);this.energy=100;d.bag[0]++;d.bag[2]++;
    const loot=this.unlock([1,2,3,4][d.zone]);
    this.spawnHero();this.grace=1;
-   if(d.zone===3){this.mode='won';d.won=true;this.emit('sound','win');this.emit('save');this.emit('won');return;}
+   if(d.zone===3){this.mode='won';d.won=true;d.royalTrialWon=true;this.emit('sound','win');this.emit('save');this.emit('won');return;}
    this.mode='map';this.emit('sound','loot');this.notice((loot?loot+' · ':'Guardián vencido · ')+d.cleared.length+'/3 sellos');
    this.emit('save');
  }
- retry(){const d=this.data;this.mode='map';this.enemy=null;this.hazards=[];d.inside=false;d.hp=this.maxHp;this.energy=100;d.x=111;d.y=312;d.bag[0]=Math.max(1,d.bag[0]);this.spawnHero();this.initPatrol();this.grace=1;this.emit('save');}
+ retry(){const d=this.data;this.mode='map';this.enemy=null;this.hazards=[];d.inside=false;d.hp=this.maxHp;this.energy=100;d.x=d.zone===3?worlds[3].chest.x:111;d.y=d.zone===3?throneGate.y+31:312;d.bag[0]=Math.max(1,d.bag[0]);this.spawnHero();this.initPatrol();this.grace=1;this.emit('save');}
  tick(dt,dx,dy){
    this.time+=dt;const d=this.data,h=this.hero;
    if(this.mode==='transition'){this.fade-=dt;if(this.fade<=0)this.enterArena();return;}
@@ -168,7 +195,7 @@ export class Adventure {
    d.x=h.x;d.y=h.y;this.patrolTime+=dt;
    const w=worlds[d.zone];
    for(const [p,home,done,type] of [[this.patrol,w.guardian,d.cleared,'guardian'],[this.scout,w.scout,d.scouts,'scout']]){
-     if(done.includes(d.zone))continue;
+     if(done.includes(d.zone)||(type==='guardian'&&d.zone===3))continue;
      const chasing=dist(h,p)<86;
      const goal=chasing?h:{x:home.x+32*Math.sin(this.patrolTime*.65),y:home.y+11*Math.sin(this.patrolTime*.91)};
      const prev={...p};this.approach(p,goal,(chasing?87:32)*dt);
@@ -178,7 +205,9 @@ export class Adventure {
  }
  approach(a,b,step){const dx=b.x-a.x,dy=b.y-a.y,n=Math.hypot(dx,dy);if(n>.01){const k=Math.min(1,step/n);a.x+=dx*k;a.y+=dy*k;}}
  fight(dt){
-   const h=this.hero,e=this.enemy,boss=this.data.zone===3;
+   const h=this.hero,e=this.enemy,royal=royalPhases[e.phase-1];
+   if(royal)this.observeRoyalSteps(dt);
+   if(e.phaseDelay>0){e.phaseDelay=Math.max(0,e.phaseDelay-dt);return;}
    stepHazards(this,dt);if(this.mode!=='arena')return;
    e.hurt=Math.max(0,e.hurt-dt);e.release=Math.max(0,e.release-dt);e.walk=false;
    if(e.stun>0){e.stun-=dt;e.lunge=null;return;}
@@ -193,19 +222,40 @@ export class Adventure {
    e.face=h.x>=e.x?1:-1;e.cool-=dt;
    const range=dist(h,e),hp=100*this.data.hp/this.maxHp;
    let guess=this.foeMemory.predict(range,hp);
-   if(!guess.action&&boss&&!e.scout)guess=this.memory.predict(range,hp);
-   const token=!h.smoke&&guess.confidence>=(boss?.48:.60)?guess.action:'';
+   if(!guess.action&&royal)guess=this.memory.predict(range,hp);
+   const token=!h.smoke&&guess.confidence>=(royal?.confidence??.60)?guess.action:'';
    const next=chooseMove(e,this.data.zone,token),attack=moves[next];
-   if(range>Math.min(88,attack.range-12)){this.approach(e,h,(boss?90:68)*dt);e.walk=true;}
+   if(range>Math.min(88,attack.range-12)){this.approach(e,h,(royal?.speed??68)*dt);e.walk=true;}
    if(e.cool>0||range>attack.range)return;
    e.move=next;
    e.guard=token.startsWith('atk:')?token:'';
    let tx=h.x,ty=h.y;
-   if(token.startsWith('roll:')){const [x,y]=directions[token.slice(5)];tx+=x*(boss?50:32);ty+=y*(boss?50:32);}
+   const route=next==='edict'&&!h.smoke?this.royalSteps.predict(range,hp):null;
+   const movement=route?.confidence>=.46?route.action:token;
+   if(movement.startsWith('roll:')||movement.startsWith('step:')){
+     const [x,y]=directions[movement.slice(5)];
+     tx+=x*(royal?.lead??32);ty+=y*(royal?.lead??32);
+   }
    if(h.smoke>0){tx=e.x-36*e.face;ty=e.y-12;}
    e.target={x:clamp(tx,23,617),y:clamp(ty,133,293)};
-   e.windDuration=attack.wind*(token==='heal'?.77:1);e.wind=e.windDuration;
-   const message=h.smoke>0?'Predicción velada':token?habit(token)+' · '+Math.round(guess.confidence*100)+'%':'Observando…';
-   if(e.read!==message&&token)this.emit('sound','adapt');e.read=message;
+   if(next==='edict'){
+     const x=clamp(tx,66,574),y=clamp(ty,174,252);
+     const vertical=Math.abs(tx-h.x)>=Math.abs(ty-h.y);
+     e.runes=[0,-40,40].map(offset=>({x:x+(vertical?0:offset),y:y+(vertical?offset:0)}));
+   }
+   e.windDuration=attack.wind*(royal?.wind??1)*(token==='heal'?.85:1);e.wind=e.windDuration;
+   const confidence=movement.startsWith('step:')?route.confidence:guess.confidence;
+   const message=h.smoke>0?'Predicción velada':movement?habit(movement)+' · '+Math.round(confidence*100)+'%':'Observando…';
+   if(e.read!==message&&movement)this.emit('sound','adapt');e.read=message;
+ }
+ observeRoyalSteps(dt){
+   const sample=this.stepSample,h=this.hero;
+   sample.time+=dt;
+   if(sample.time<.36)return;
+   const dx=h.x-sample.x,dy=h.y-sample.y;
+   if(!h.roll&&Math.hypot(dx,dy)>18){
+     this.royalSteps.observe('step:'+sector(dx,dy),dist(h,this.enemy),100*this.data.hp/this.maxHp);
+   }
+   Object.assign(sample,{x:h.x,y:h.y,time:0});
  }
 }

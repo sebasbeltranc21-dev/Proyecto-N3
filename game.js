@@ -1,7 +1,7 @@
 import {Adventure,weapons,items,exits} from './engine.js';
 import {drawWorld,drawMinimap,drawArena} from './village-art.js';
 import {chamberNames,roomNames,guardianPlaces} from './world.js';
-import {scoutNames} from './arsenal.js';
+import {scoutNames,royalPhases} from './arsenal.js';
 import {paintThreats,attackCaption} from './weapon-art.js';
 import {drawHero,drawOpponent} from './actors.js';
 import {conversation,speakerPosition,placeBubble} from './speech.js';
@@ -40,7 +40,7 @@ async function prepareGraphics(){
    tile(ctx,'arenas',i,0,0,c.width,c.height);stamp(ctx,'places',[0,1,6,7][i],29,43,38);
   });
   if(modal.open)paintMenu(menuZone);
-  artReady=true;$('startLabel').textContent=saved?(saved.data.won?'Ver mi aventura':'Continuar aventura'):'Comenzar aventura';
+  artReady=true;$('startLabel').textContent=saved?(saved.data.royalTrialWon?'Ver mi aventura':'Continuar aventura'):'Comenzar aventura';
  }catch{$('startLabel').textContent='Volver a cargar los gráficos';}
  $('start').disabled=false;
 }
@@ -78,13 +78,13 @@ const descriptions=[
  'El sendero de trigo se bifurca bajo los álamos. Bramble custodia el primer sello. La posada queda al oeste. El cofre está al sur de la plaza, y el molino al este del puente.',
  'Una polilla luminosa patrulla los helechos. Su sello abre el trono junto con los de la pradera y las ruinas.',
  'Entre columnas cubiertas de musgo duerme Talos. Su martillo golpea fuerte y deja una ventana para esquivar.',
- 'Tras las almenas te espera el Rey Mimético. El humo oculta tu próxima acción y una esquiva tardía puede engañar su embestida.'
+ 'Recoge la Espada del Alba en el cofre junto al portón y cruza al salón del trono. El Rey Mimético tiene tres fases y aprende hacia dónde te mueves.'
 ];
 const sealRegions=['Pradera','Bosque','Ruinas'];
 function updateCards(){
  [...$('zones').children].forEach((card,i)=>{
    const current=i===game.data.zone;
-   const completed=game.data.cleared.includes(i);
+   const completed=i===3?game.data.royalTrialWon:game.data.cleared.includes(i);
    card.classList.toggle('active',current);
    card.setAttribute('aria-current',current?'location':'false');
    card.querySelector('small').textContent=completed?(i===3?'Rey vencido':'Sello recuperado'):current?'Estás aquí':'';
@@ -178,7 +178,7 @@ function pause(){
 function ending(won){
  const m=game.memory;
  show(won?'won':'lost',won?'Fin de la aventura':'Caíste en combate',won?'La isla vuelve a cantar':'El eco permanece',
-   won?'<p class="menuLead">Los tres sellos rompieron la corona del Rey Mimético.</p>'+
+   won?'<p class="menuLead">La Espada del Alba rompió la corona del Rey Mimético.</p>'+
      '<dl class="menuStats"><div><dt>Acciones recordadas</dt><dd>'+m.samples+'</dd></div></dl>'
       :'<p class="menuLead">Vuelves a la región con la vida completa. Tus armas, sellos y los recuerdos aprendidos siguen contigo.</p>',
    [...(won?[button('Seguir explorando',()=>{close();game.mode='map';game.grace=1;tell('La isla está en paz · quedan lugares por descubrir');updateCards();save();})]:[]),
@@ -189,7 +189,7 @@ $('start').onclick=()=>{
  if(!artReady){void prepareGraphics();return;}
  audio.start();started=true;$('cover').hidden=true;$('hud').hidden=false;scene.focus();
  $('touch').hidden=!matchMedia('(pointer: coarse), (max-width: 760px)').matches;
- if(game.data.won){game.mode='won';ending(true);}else if(game.data.hp<=0){game.retry();}else tell('J para hablar o entrar · Cruza el puente hacia el guardián');
+ if(game.data.royalTrialWon){game.mode='won';ending(true);}else if(game.data.hp<=0){game.retry();}else tell(game.data.zone===3?'El cofre del Alba y el trono están junto al portón':'J para hablar o entrar · Cruza el puente hacia el guardián');
  save();
 };
 $('codexBtn').onclick=codex;$('pauseBtn').onclick=pause;
@@ -303,7 +303,16 @@ function hud(){
  if($('region').textContent!==region)$('region').textContent=region;
  $('hp').style.width=(100*d.hp/game.maxHp)+'%';$('sp').style.width=game.energy+'%';$('enemyHud').hidden=!e;
  $('lifeText').textContent=d.hp+' / '+game.maxHp;
- if(e){$('enemyName').textContent=(e.scout?scoutNames[d.zone]:enemyNames[d.zone])+' · '+Math.max(0,e.hp)+'/'+e.max; $('enemyHP').style.width=100*Math.max(0,e.hp/e.max)+'%';$('prediction').textContent=(d.zone===3&&!e.scout?game.memory:game.foeMemory).samples+' recuerdos · '+(attackCaption(e)?attackCaption(e)+' · ':'')+e.read;}
+ if(e){
+   $('enemyName').textContent=(e.scout?scoutNames[d.zone]:enemyNames[d.zone])+' · '+Math.max(0,e.hp)+'/'+e.max;
+   $('enemyHP').style.width=100*Math.max(0,e.hp/e.max)+'%';
+   const phase=royalPhases[e.phase-1];
+   $('enemyHud').classList.toggle('royal',Boolean(phase));
+   $('royalPhase').hidden=!phase;
+   if(phase)$('royalPhase').textContent='Fase '+e.phase+' / 3 · '+phase.name;
+   const samples=phase?game.memory.samples+game.royalSteps.samples:game.foeMemory.samples;
+   $('prediction').textContent=[samples+' recuerdos',attackCaption(e),e.read].filter(Boolean).join(' · ');
+ }
  const key=[d.weapon,d.item,...d.bag,'gear',...d.unlocked].join('/');
  if(key!==icons){
    icons=key;
