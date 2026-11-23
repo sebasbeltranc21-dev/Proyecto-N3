@@ -125,7 +125,36 @@ $('start').onclick=()=>{
 };
 $('codexBtn').onclick=codex;$('pauseBtn').onclick=pause;
 $('soundBtn').onclick=()=>{audio.volume((audio.level+1)%3);audio.start();audio.play('click');renderVolume();try{localStorage.setItem(soundSlot,audio.level);}catch{}};
-$('fullBtn').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{tell('Pantalla completa no disponible');}};
+const gameView=$('gameView');
+const nativeView=()=>document.fullscreenElement||document.webkitFullscreenElement;
+let immersive=false;
+function setView(active){
+ immersive=active;
+ gameView.classList.toggle('immersive',active);
+ document.documentElement.classList.toggle('playing-full',active);
+ $('fullBtn').setAttribute('aria-pressed',String(active));
+ if(active)$('leaveFull').focus({preventScroll:true});
+ else $('fullBtn').focus({preventScroll:true});
+}
+async function enterFull(){
+ setView(true);
+ try{
+   const request=gameView.requestFullscreen||gameView.webkitRequestFullscreen;
+   if(request)await request.call(gameView);
+ }catch{/* The viewport layout also works in embedded browsers. */}
+}
+async function leaveFull(){
+ if(nativeView()===gameView){
+   const exit=document.exitFullscreen||document.webkitExitFullscreen;
+   if(exit)await exit.call(document);
+ }
+ if(immersive)setView(false);
+}
+for(const event of ['fullscreenchange','webkitfullscreenchange']){
+ document.addEventListener(event,()=>setView(nativeView()===gameView));
+}
+$('fullBtn').onclick=enterFull;
+$('leaveFull').onclick=leaveFull;
 const actions={KeyJ:'attack',Space:'roll',KeyQ:'weapon',KeyR:'select',KeyE:'item'};
 const movement=['KeyW','KeyA','KeyS','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'];
 function engage(k){
@@ -134,6 +163,7 @@ function engage(k){
  if(actions[k])game.act(actions[k]);
 }
 window.addEventListener('keydown',e=>{
+ if(e.code==='Escape'&&immersive&&!modal.open){e.preventDefault();leaveFull();return;}
  if(!started||modal.open||e.ctrlKey||e.altKey||e.metaKey)return;
  if(e.code==='Escape'){e.preventDefault();pause();return;}
  if(actions[e.code]||movement.includes(e.code)){e.preventDefault();if(!e.repeat)engage(e.code);}
