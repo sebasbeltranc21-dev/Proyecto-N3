@@ -166,15 +166,37 @@ window.addEventListener('keydown',e=>{
  if(e.code==='Escape'&&immersive&&!modal.open){e.preventDefault();leaveFull();return;}
  if(!started||modal.open||e.ctrlKey||e.altKey||e.metaKey)return;
  if(e.code==='Escape'){e.preventDefault();pause();return;}
+ if(/^Digit[0-9]$/.test(e.code)){
+   e.preventDefault();if(!e.repeat)selectSlot((Number(e.code.slice(-1))+9)%10);
+   return;
+ }
  if(actions[e.code]||movement.includes(e.code)){e.preventDefault();if(!e.repeat)engage(e.code);}
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));
 window.addEventListener('blur',()=>{keys.clear();if(started&&!modal.open)pause();});
 window.addEventListener('pagehide',save);
 document.addEventListener('visibilitychange',()=>{if(document.hidden){save();keys.clear();if(started&&!modal.open)pause();}});
-for(const [id,action] of [['weaponBtn','weapon'],['itemBtn','select'],['useBtn','item']]){
- $(id).onclick=()=>{if(!paused){game.act(action);scene.focus({preventScroll:true});}};
+function selectSlot(position){
+ if(!started||paused||!['arena','map'].includes(game.mode))return;
+ const d=game.data;
+ if(position<weapons.length){
+   if(!d.unlocked.includes(position))return;
+   d.weapon=position;
+ }else d.item=position-weapons.length;
+ audio.play('click');scene.focus({preventScroll:true});
 }
+const inventorySlots=[...weapons.map(w=>w.name),...items].map((name,position)=>{
+ const gear=position<weapons.length,index=gear?position:position-weapons.length;
+ const button=document.createElement('button');
+ button.type='button';button.className='inventorySlot';
+ const key=(position+1)%10;
+ button.innerHTML='<small>'+key+'</small><canvas width="24" height="24" aria-hidden="true"></canvas><b></b>';
+ emblem(button.querySelector('canvas'),gear?'weapon':'item',index);
+ button.onclick=()=>selectSlot(position);
+ $(gear?'gearSlots':'bagSlots').append(button);
+ return {button,name,gear,index,key};
+});
+$('useBtn').onclick=()=>{if(!paused){game.act('item');scene.focus({preventScroll:true});}};
 for(const b of $('touch').querySelectorAll('[data-key]')){
  b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);engage(b.dataset.key);});
  for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>keys.delete(b.dataset.key));
@@ -216,8 +238,21 @@ function hud(){
  $('hp').style.width=(100*d.hp/game.maxHp)+'%';$('sp').style.width=game.energy+'%';$('enemyHud').hidden=!e;
  $('lifeText').textContent=d.hp+' / '+game.maxHp;
  if(e){$('enemyName').textContent=(e.scout?scoutNames[d.zone]:enemyNames[d.zone])+' · '+Math.max(0,e.hp)+'/'+e.max; $('enemyHP').style.width=100*Math.max(0,e.hp/e.max)+'%';$('prediction').textContent=(d.zone===3&&!e.scout?game.memory:game.foeMemory).samples+' recuerdos · '+(attackCaption(e)?attackCaption(e)+' · ':'')+e.read;}
- const key=[d.weapon,d.item,d.bag[d.item]].join('/');
- if(key!==icons){icons=key;emblem($('weaponIcon'),'weapon',d.weapon);emblem($('itemIcon'),'item',d.item);$('weaponName').textContent=weapons[d.weapon].short;$('itemName').textContent=items[d.item]+' ×'+d.bag[d.item];}
+ const key=[d.weapon,d.item,...d.bag,'gear',...d.unlocked].join('/');
+ if(key!==icons){
+   icons=key;
+   for(const {button,name,gear,index,key:shortcut} of inventorySlots){
+     const locked=gear&&!d.unlocked.includes(index);
+     button.disabled=locked;
+     button.setAttribute('aria-pressed',String(!locked&&index===(gear?d.weapon:d.item)));
+     button.classList.toggle('empty',!gear&&!d.bag[index]);
+     button.querySelector('b').textContent=gear?'':d.bag[index];
+     button.title=(locked?'Arma por descubrir':name+(gear?'':' ×'+d.bag[index]))+' ['+shortcut+']';
+     button.setAttribute('aria-label',button.title);
+   }
+   $('useBtn').disabled=!d.bag[d.item];
+   $('useBtn').title='Usar '+items[d.item]+' [E]';
+ }
  const msg=game.time<messageUntil?message:'';if($('toast').textContent!==msg)$('toast').textContent=msg;
 }
 function frame(now){

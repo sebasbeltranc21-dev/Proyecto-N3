@@ -29,3 +29,20 @@ html.playing-full,html.playing-full body{overflow:hidden}
 .immersive .frame::before,.immersive .frame::after{display:none}
 .immersive .stage{width:min(100cqw,190.47619cqh);height:auto}
 .immersive .touch{flex:none;margin:0;padding:3px 8px}
+
+.belt{--cell:clamp(20px,5.7vw,46px);left:50%;bottom:5px;transform:translateX(-50%);align-items:center;padding:3px;gap:5px;background:#262423f2;border-color:#695f51}
+.slots{display:flex;gap:1px}
+.belt .inventorySlot{position:relative;display:grid;place-items:center;padding:0;width:var(--cell);height:var(--cell);background:#595955;border:2px solid;border-color:#353733 #aba99a #aaa99c #353733;box-shadow:none}
+.belt .inventorySlot:first-child{border-color:#353733 #aba99a #aaa99c #353733}
+.belt .inventorySlot[aria-pressed=true]{outline:2px solid #fff0bf;outline-offset:-2px;background:#73664c}
+.belt .bag .inventorySlot[aria-pressed=true]{outline-color:#96e4c2;background:#425f54}
+.belt .inventorySlot:focus-visible{outline:3px dashed white}
+.belt .inventorySlot:hover:enabled{background:#747269}
+.belt .inventorySlot:disabled{opacity:1;background:#464643}
+.inventorySlot:disabled canvas{visibility:hidden}
+.inventorySlot.empty canvas{opacity:.45}
+.belt .inventorySlot canvas{width:75%;height:75%}
+.inventorySlot small,.inventorySlot b{position:absolute;z-index:1;font-size:clamp(6px,.8vw,10px);line-height:1;text-shadow:1px 1px #121212}
+.inventorySlot small{top:2px;left:2px;color:#e1dfcd}
+.inventorySlot b{right:2px;bottom:1px;color:white}
+.belt #useBtn{height:var(--cell);padding:0 4px;font-size:clamp(7px,1vw,12px)}

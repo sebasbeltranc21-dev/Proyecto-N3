@@ -27,8 +27,10 @@ export function emblem(canvas,type,index=0){
   if(type==='crest'){poly(g,INK,[[2,3],[21,3],[21,15],[12,23],[2,15]]);poly(g,'#dcb36c',[[3,4],[20,4],[20,14],[12,21],[3,14]]);poly(g,'#368b81',[[5,6],[18,6],[18,14],[12,18],[5,14]]);poly(g,'#fff0c3',[[6,13],[10,8],[12,11],[15,7],[18,14],[6,14]]);}
   if(type==='sound'){rect(g,'#cbd8c4',3,9,5,6);poly(g,'#f3d296',[[7,9],[14,4],[14,20],[7,15]]);if(index){rect(g,'#83d7bb',16,8,2,8);if(index===2)rect(g,'#83d7bb',20,6,1,12);}else{rect(g,'#e18b80',16,11,5,2);}}
   if(type==='weapon'){
-    g.translate(4,20);g.rotate(-.79);rect(g,'#986442',-1,-4,3,6);rect(g,'#f3cf78',-4,-5,10,3);
+    g.translate(4,20);g.rotate(.79);rect(g,'#986442',-1,-4,3,6);rect(g,'#f3cf78',-4,-5,10,3);
     rect(g,index===4?'#89e0cf':'#ccdedb',0,-(index===2?14:21),4,index===2?10:17);
+    if(index===1)rect(g,'#85b9da',1,-18,2,10);
+    if(index===2){rect(g,'#c3e5dd',7,-17,3,12);rect(g,'#cc9e64',5,-6,7,2);}
     if(index===3)rect(g,'#a0abb1',-4,-19,13,7);
   }
   if(type==='item'){
