@@ -1,5 +1,6 @@
 import {rect,poly,oval} from './art.js';
 import {moves} from './arsenal.js';
+import {diamondIndex} from './engine.js';
 function stroke(g,color,x,y,u,v,size=1){
  const n=Math.max(1,Math.ceil(Math.hypot(u-x,v-y)));
  for(let i=0;i<=n;i++)rect(g,color,x+(u-x)*i/n,y+(v-y)*i/n,size,size);
@@ -72,9 +73,17 @@ const heroArms=[
   ['#edc682',[[3,-2],[12,-3],[16,-6],[23,-2],[30,-4],[37,0],[30,0],[23,1],[16,4],[12,1],[3,1]]],
   ['#fff1b4',[[14,-1],[18,-1],[18,1],[14,1]]],
   ['#fff1b4',[[25,-1],[29,-1],[29,1],[25,1]]]
+ ],
+ [
+  ['#4df3ef36',[[1,-9],[12,-12],[34,-10],[53,0],[34,10],[12,12],[1,9]]],
+  ['#123943',[[1,-5],[12,-8],[35,-7],[48,0],[35,7],[12,8],[1,5]]],
+  ['#2399a7',[[3,-4],[13,-7],[34,-6],[46,0],[34,6],[13,7],[3,4]]],
+  ['#61e7e7',[[4,-3],[13,-6],[34,-5],[46,0],[33,3],[12,2],[4,2]]],
+  ['#e5ffff',[[9,-3],[15,-5],[34,-4],[45,0],[33,-1],[14,0]]],
+  ['#b0ffff',[[13,2],[20,1],[18,4],[13,5]]]
  ]
 ];
-const heroGuards=['#dea653','#82c1ee','#d4b179','#e8b56a','#e7aa62'];
+const heroGuards=['#dea653','#82c1ee','#d4b179','#e8b56a','#e7aa62','#9ff7f1'];
 function playerSteel(g,weapon,x,y,scale,angle,face){
  const c=Math.cos(angle)*scale,s=Math.sin(angle)*scale;
  const shape=(color,points)=>poly(g,color,points.map(([u,v])=>[
@@ -97,9 +106,10 @@ const swingAngles=[
  [-1.9,-1.12,.12,.9],
  [-1.18,-.13,-.88,.24],
  [-2.13,-1.45,-.33,.72],
- [-1.67,-.51,.05,.63]
+ [-1.67,-.51,.05,.63],
+ [-1.72,-.52,.18,.84]
 ];
-const readyAngles=[-.86,-.72,-.58,-.92,-.76];
+const readyAngles=[-.86,-.72,-.58,-.92,-.76,-.83];
 // Hand anchors follow the walking, attack and idle frames in the hero atlas.
 const frontHand=[[11,21],[8,18],[9,17],[7,17],[11,17],[20,24],[17,6],[11,17]];
 const rearHand=[[-8,17],[-6,15],[-7,19],[-7,15],[-12,28],[-16,15],[-15,17],[-9,20]];
@@ -118,6 +128,16 @@ export function heroWeapon(g,weapon,x,y,face,arena,frame){
 
 export function heroStrike(g,weapon,x,y,face,reach,remaining){
  const phase=1-remaining/.23;
+ if(weapon===diamondIndex){
+  const radius=reach*(.64+.36*phase);
+  for(let i=0;i<34;i++){
+   const a=i*Math.PI/17+phase*.52;
+   const px=x+Math.cos(a)*radius,py=y+Math.sin(a)*radius*.52;
+   rect(g,i%3?'#69fff1':'#efffff',px,py-4,i%3?4:7,3);
+   if(i%4===0)rect(g,'#43bee5',px-2,py+3,3,2);
+  }
+  return;
+ }
  if(phase<.22||phase>.90)return;
  if(weapon===3){
   if(phase<.52)return;
@@ -146,6 +166,9 @@ export function heroStrike(g,weapon,x,y,face,reach,remaining){
   rect(g,i<9?color:'#fff6de',px,py,weapon===1?4:2,3);
   if(weapon===4&&i%3===0)rect(g,color,px+face*4,py-4,2,2);
  }
+}
+export function drawDiamondBlade(g,x,y,scale){
+ playerSteel(g,diamondIndex,x,y,scale,-Math.PI/2,1);
 }
 export function armedEnemy(g,e,z,t,pose){
  const kind=e.move||['lance','fan','slam','dash'][z],face=e.face||1,active=e.wind>0;

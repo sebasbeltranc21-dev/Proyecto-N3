@@ -1,18 +1,21 @@
 import {EchoMemory,sector,directions,habit} from './learning.js';
 import {WORLD,worlds,canWalk,safePosition,interaction,roomNames,throneGate} from './world.js';
 import {health,moves,chooseMove,release,stepHazards,strike,royalPhases,royalHealth} from './arsenal.js';
+import {BattlePlus,diamondSword} from './battle-plus.js';
 export const weapons=[
  {name:'Espada de Viajero',short:'Viajero',damage:15,reach:56,delay:.39,cost:8},
  {name:'Espada de Caballero',short:'Caballero',damage:22,reach:61,delay:.46,cost:10},
  {name:'Dagas del Viento',short:'Dagas',damage:11,reach:48,delay:.19,cost:4},
  {name:'Martillo del Ocaso',short:'Martillo',damage:37,reach:58,delay:.76,cost:15},
- {name:'Espada del Alba',short:'Alba',damage:46,reach:78,delay:.48,cost:11}
+ {name:'Espada del Alba',short:'Alba',damage:46,reach:78,delay:.48,cost:11},
+ diamondSword
 ];
+export const diamondIndex=weapons.length-1;
 export const items=['Fruta','Escudo','Aturdidora','Elixir','Humo'];
 export const exits=[[2,1],[0,3],[3,0],[1,2]];
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-function fresh(){return {mapRevision:2,inside:false,scouts:[],services:[],found:[],seenCinematics:[],zone:0,x:111,y:312,hp:100,weapon:0,item:0,unlocked:[0],bag:[4,1,1,1,1],cleared:[],opened:[],won:false,royalTrialWon:false};}
+function fresh(){return {mapRevision:2,inside:false,scouts:[],services:[],found:[],seenCinematics:[],zone:0,x:111,y:312,hp:100,weapon:0,item:0,unlocked:[0],bag:[4,1,1,1,1],cleared:[],opened:[],won:false,royalTrialWon:false,battlePlusWon:false};}
 export class Adventure {
  constructor(save,onEvent=()=>{}){
    this.data=Object.assign(fresh(),save?.data||{});this.memory=new EchoMemory(save?.memory);this.emit=onEvent;
@@ -24,7 +27,7 @@ export class Adventure {
    }
    d.found??=[];
    d.seenCinematics??=[];
-   this.cinematicHandler=null;
+   this.cinematicHandler=null;this.battlePlus=null;
    this.hazards=[];this.encounterType='guardian';
    this.time=0;this.mode='map';this.enemy=null;this.energy=100;this.grace=0;this.face=1;this.walk=false;
    this.spawnHero();this.initPatrol();
@@ -36,6 +39,9 @@ export class Adventure {
    const w=worlds[this.data.zone];this.patrol={...w.guardian};this.scout={...w.scout};this.patrolTime=0;
  }
  get maxHp(){return 100+this.data.cleared.filter(i=>i<3).length*15;}
+ get hp(){return this.battlePlus?.hp??this.data.hp;}
+ get weapon(){return this.battlePlus?diamondIndex:this.data.weapon;}
+ get canPlayBattlePlus(){return this.data.royalTrialWon;}
  get chest(){return worlds[this.data.zone].chest;}
  interact(a){
    const d=this.data,w=worlds[d.zone],door=w.houses[0];
@@ -104,16 +110,26 @@ export class Adventure {
  unlock(i){if(!this.data.unlocked.includes(i)){this.data.unlocked.push(i);this.data.weapon=i;return weapons[i].name;}return '';}
  cycleWeapon(){const d=this.data;d.weapon=d.unlocked[(d.unlocked.indexOf(d.weapon)+1)%d.unlocked.length];this.emit('sound','click');this.notice(weapons[d.weapon].name);}
  cycleItem(){this.data.item=(this.data.item+1)%items.length;this.emit('sound','click');}
+ roll(learn=true){
+   const h=this.hero;
+   if(this.energy<18)return;
+   if(learn)this.learn('roll:'+sector(h.dx,h.dy));
+   h.roll=.23;h.lock=.31;this.energy-=18;this.emit('sound','roll');
+ }
  act(key){
+   if(this.mode==='plus'){
+     const battle=this.battlePlus;
+     if(battle.stage==='intro'||battle.finished||this.hero.lock>0)return;
+     if(key==='attack')battle.attack();
+     if(key==='roll')this.roll(false);
+     return;
+   }
    if(!['arena','map'].includes(this.mode))return;
    if(key==='weapon'){this.cycleWeapon();return;}if(key==='select'){this.cycleItem();return;}
    const h=this.hero,d=this.data,w=weapons[d.weapon];
    if(h.lock>0||h.heal>0)return;
    if(key==='item'){this.useItem();return;}
-   if(key==='roll'&&this.energy>=18){
-     const direction=sector(h.dx,h.dy);this.learn('roll:'+direction);
-     h.roll=.23;h.lock=.31;this.energy-=18;this.emit('sound','roll');return;
-   }
+   if(key==='roll'){this.roll();return;}
    if(key!=='attack')return;
    if(this.mode==='map'){const a=interaction(this);if(a){this.interact(a);return;}}
    if(this.energy<w.cost||this.enemy?.phaseDelay>0)return;
@@ -209,11 +225,27 @@ export class Adventure {
    this.mode='map';this.emit('sound','loot');this.notice((loot?loot+' · ':'Guardián vencido · ')+d.cleared.length+'/3 sellos');
    this.emit('save');
  }
+ startBattlePlus(){
+   if(!this.canPlayBattlePlus||!['map','won'].includes(this.mode))return false;
+   const battle=new BattlePlus(this);
+   this.battlePlus=battle;this.mode='plus';this.energy=100;this.walk=false;this.face=1;
+   this.spawnHero();Object.assign(this.hero,{x:320,y:218});
+   const begin=()=>{if(this.battlePlus===battle)battle.begin();};
+   if(this.cinematicHandler)this.cinematicHandler('diamond_sword',begin);
+   else begin();
+   return true;
+ }
+ leaveBattlePlus(){
+   if(!this.battlePlus)return;
+   this.battlePlus=null;this.mode='won';this.energy=100;this.walk=false;
+   this.spawnHero();
+ }
  retry(){const d=this.data;this.mode='map';this.enemy=null;this.hazards=[];d.inside=false;d.hp=this.maxHp;this.energy=100;d.x=d.zone===3?worlds[3].chest.x:111;d.y=d.zone===3?throneGate.y+31:312;d.bag[0]=Math.max(1,d.bag[0]);this.spawnHero();this.initPatrol();this.grace=1;this.emit('save');}
  tick(dt,dx,dy){
    this.time+=dt;const d=this.data,h=this.hero;
    if(this.mode==='transition'){this.fade-=dt;if(this.fade<=0)this.enterArena();return;}
-   if(!['map','arena'].includes(this.mode))return;
+   if(this.mode==='plus'&&(this.battlePlus.stage==='intro'||this.battlePlus.finished))return;
+   if(!['map','arena','plus'].includes(this.mode))return;
    for(const k of ['lock','hurt','shield','haste','smoke','attack'])h[k]=Math.max(0,h[k]-dt);
    this.grace=Math.max(0,this.grace-dt);this.energy=Math.min(100,this.energy+dt*22);
    if(h.heal>0){h.heal=Math.max(0,h.heal-dt);if(!h.heal){d.hp=Math.min(this.maxHp,d.hp+43);this.notice('+43 vida');}}
@@ -221,9 +253,14 @@ export class Adventure {
    if(h.roll>0){dx=h.dx;dy=h.dy;h.roll=Math.max(0,h.roll-dt);}
    else if(n){dx/=n;dy/=n;h.dx=dx;h.dy=dy;if(dx)this.face=Math.sign(dx);}
    const speed=h.roll>0?310:h.heal>0?22:h.haste>0?143:105;
-   const arena=this.mode==='arena';
+   const arena=this.mode==='arena'||this.mode==='plus';
    const vx=dx*speed*dt,vy=dy*speed*dt;
-   if(arena){h.x=clamp(h.x+vx,23,617);h.y=clamp(h.y+vy,133,293);this.fight(dt);return;}
+   if(arena){
+     h.x=clamp(h.x+vx,23,617);h.y=clamp(h.y+vy,133,293);
+     if(this.battlePlus)this.battlePlus.tick(dt);
+     else this.fight(dt);
+     return;
+   }
    if(d.inside){h.x=clamp(h.x+vx,130,510);h.y=clamp(h.y+vy,157,274);d.x=h.x;d.y=h.y;return;}
    const nx=clamp(h.x+vx,8,WORLD.width-8),ny=clamp(h.y+vy,62,WORLD.height-25);
    if(canWalk(d.zone,nx,h.y))h.x=nx;

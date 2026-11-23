@@ -1,4 +1,4 @@
-import {Adventure,weapons,items,exits} from './engine.js';
+import {Adventure,weapons,items,exits,diamondIndex} from './engine.js';
 import {drawWorld,drawMinimap,drawArena} from './village-art.js';
 import {chamberNames,roomNames,guardianPlaces} from './world.js';
 import {scoutNames,royalPhases} from './arsenal.js';
@@ -10,6 +10,8 @@ import {ChipAudio} from './audio.js';
 import {habit} from './learning.js';
 import {emblem,label,enemyNames,regions} from './art.js';
 import {CinematicDirector,royalPhaseQuotes} from './cinematics.js';
+import {dragonName,dragonMoves} from './battle-plus.js';
+import {drawPlusBattle} from './battle-plus-art.js';
 
 const $=id=>document.getElementById(id);
 const scene=$('scene'),modal=$('modal');
@@ -26,6 +28,7 @@ new ResizeObserver(resizeDisplay).observe(scene);
 window.addEventListener('resize',resizeDisplay);
 const slot='isla-ecos-adventure-v1',soundSlot='isla-ecos-vol-v1';
 const audio=new ChipAudio(),keys=new Set(),effects=[];
+const resultDialogs=['lost','won','plus-result'];
 let shakeTime=0,shakeMag=0,phaseBannerUntil=0;
 function triggerShake(mag=3,duration=.22){shakeMag=Math.max(shakeMag,mag);shakeTime=Math.max(shakeTime,duration);}
 const director=new CinematicDirector(audio,triggerShake);
@@ -103,13 +106,15 @@ function bindGame(instance){
  return instance;
 }
 function event(type,value){
- if(type==='sound')audio.play(value,game.data.weapon);
+ if(type==='sound')audio.play(value,game.weapon);
  if(type==='notice')tell(value);
  if(type==='effect'){effects.push({...value,age:0});flash=.06;if(String(value.text).includes('−'))triggerShake(2,.12);}
  if(type==='save'){save();updateCards();}
  if(type==='dialog')speak(value);
  if(type==='arena'||type==='zone')updateCards();
  if(type==='royal_phase')showPhaseBanner(value);
+ if(type==='plus_shake')triggerShake(5,.38);
+ if(type==='plus_finished')battlePlusResult(value);
  if(type==='cinematic'){
   runCinematic(value.id);
  }
@@ -139,6 +144,7 @@ emblem($('fullIcon'),'full');
 emblem($('pauseIcon'),'pause');
 emblem($('heartIcon'),'heart');
 emblem($('boltIcon'),'bolt');
+emblem($('diamondIcon'),'diamond');
 const descriptions=[
  'El sendero de trigo se bifurca bajo los álamos. Bramble custodia el primer sello. La posada queda al oeste. El cofre está al sur de la plaza, y el molino al este del puente.',
  'Una polilla luminosa patrulla los helechos. Su sello abre el trono junto con los de la pradera y las ruinas.',
@@ -187,7 +193,7 @@ function show(kind,tag,title,body,actions=[],zone=game.data.zone){
  $('dialogTitle').textContent=title;
  $('dialogBody').innerHTML=body;
  $('dialogActions').replaceChildren(...actions);
- $('close').hidden=['lost','won'].includes(kind);
+ $('close').hidden=resultDialogs.includes(kind);
  paintMenu(zone);
  if(!modal.open)modal.showModal();
  $('dialogTitle').focus({preventScroll:true});
@@ -228,6 +234,12 @@ function codex(){
 }
 function pause(){
  if(!started||modal.open||director.active)return;
+ if(game.battlePlus){
+  show('pause','Modo batalla plus','Juego en pausa',
+    '<p class="menuLead">El cronómetro se reanuda al continuar.</p>',
+    [button('Continuar',close),button('Salir del modo batalla plus',leaveBattlePlus)],3);
+  return;
+ }
  const count=sealRegions.filter((_,i)=>game.data.cleared.includes(i)).length;
  const seals=sealRegions.map((name,i)=>{
    const found=game.data.cleared.includes(i);
@@ -237,18 +249,41 @@ function pause(){
  show('pause','Campamento','Juego en pausa',
    '<p class="menuLead">'+regions[game.data.zone]+'</p>'+
    '<h3>Sellos recuperados <span>'+count+' / 3</span></h3><ul class="menuSeals">'+seals+'</ul>',
-   [button('Continuar',close),button('Abrir códice',codex)]);
+   [button('Continuar',close),button('Abrir códice',codex),...battlePlusActions()]);
+}
+function battlePlusActions(){
+ return game.canPlayBattlePlus&&['map','won'].includes(game.mode)?[button('Modo batalla plus',startBattlePlus)]:[];
+}
+function startBattlePlus(){
+ close();
+ effects.length=0;
+ if(game.battlePlus)game.leaveBattlePlus();
+ game.startBattlePlus();
+}
+function leaveBattlePlus(){
+ game.leaveBattlePlus();
+ effects.length=0;
+ hud();
+ ending(true);
+}
+function battlePlusResult(won){
+ const {kills}=game.battlePlus;
+ show('plus-result','Modo batalla plus',won?'El dragón ha caído':'La caldera te venció',
+  '<p class="menuLead">'+(won?'Varkhos se desploma y la caldera se apaga.':'La Espada de Diamante te espera para otro intento.')+'</p>'+
+  '<dl class="menuStats"><div><dt>Monstruos derrotados</dt><dd>'+kills+'</dd></div></dl>',
+  [button(won?'Volver a jugar':'Reintentar',startBattlePlus),button('Volver al final de la aventura',leaveBattlePlus)],3);
 }
 function ending(won){
  const m=game.memory;
  show(won?'won':'lost',won?'Fin de la aventura':'Caíste en combate',won?'La isla vuelve a cantar':'El eco permanece',
    won?'<p class="menuLead">La Espada del Alba rompió la corona del Rey Mimético.</p>'+
+     (game.data.battlePlusWon?'<p>También venciste a Varkhos en el modo batalla plus.</p>':'')+
      '<dl class="menuStats"><div><dt>Acciones recordadas</dt><dd>'+m.samples+'</dd></div></dl>'
       :'<p class="menuLead">Vuelves a la región con la vida completa. Tus armas, sellos y los recuerdos aprendidos siguen contigo.</p>',
-   [...(won?[button('Seguir explorando',()=>{close();game.mode='map';game.grace=1;tell('La isla está en paz · quedan lugares por descubrir');updateCards();save();})]:[]),
+   [...(won?[...battlePlusActions(),button('Seguir explorando',()=>{close();game.mode='map';game.grace=1;tell('La isla está en paz · quedan lugares por descubrir');updateCards();save();})]:[]),
    button(won?'Nueva aventura':'Volver al sendero',()=>{close();if(won){game=bindGame(new Adventure(null,event));game.markCinematic('intro');runCinematic('intro',()=>tell('Busca el primer sello'));}else game.retry();effects.length=0;updateCards();save();})]);
 }
-$('close').onclick=close;modal.addEventListener('cancel',e=>{e.preventDefault();if(!['won','lost'].includes(modalKind))close();});
+$('close').onclick=close;modal.addEventListener('cancel',e=>{e.preventDefault();if(!resultDialogs.includes(modalKind))close();});
 $('cineBox').onclick=()=>{if(director.active)director.advance();};
 $('cineSkip').onclick=()=>{if(director.active)director.skip();};
 $('start').onclick=()=>{
@@ -331,14 +366,14 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){save();key
 function selectSlot(position){
  if(!started||paused||director.active||!['arena','map'].includes(game.mode))return;
  const d=game.data;
- if(position<weapons.length){
+ if(position<diamondIndex){
    if(!d.unlocked.includes(position))return;
    d.weapon=position;
- }else d.item=position-weapons.length;
+ }else d.item=position-diamondIndex;
  audio.play('click');scene.focus({preventScroll:true});
 }
-const inventorySlots=[...weapons.map(w=>w.name),...items].map((name,position)=>{
- const gear=position<weapons.length,index=gear?position:position-weapons.length;
+const inventorySlots=[...weapons.slice(0,diamondIndex).map(w=>w.name),...items].map((name,position)=>{
+ const gear=position<diamondIndex,index=gear?position:position-diamondIndex;
  const button=document.createElement('button');
  button.type='button';button.className='inventorySlot';
  const key=(position+1)%10;
@@ -359,7 +394,8 @@ function tintRing(x,y,rx,ry,color){
  for(let i=0;i<64;i++){const a=i*Math.PI/32;g.fillStyle=color;g.fillRect(Math.round(x+Math.cos(a)*rx),Math.round(y+Math.sin(a)*ry),3,2);}
 }
 function draw(dt){
- const {data:d,hero:h,enemy:e}=game,z=d.zone,t=game.time,arena=game.mode==='arena'||game.mode==='lost';
+ const {data:d,hero:h,enemy:e,battlePlus}=game,z=d.zone,t=game.time;
+ const arena=game.mode==='arena'||game.mode==='lost'||Boolean(battlePlus);
  const hero=()=>{
    if(h.shield>0||h.haste>0)tintRing(h.x,h.y,21,7,h.shield>0?'#aff3ed':'#fadc87');
    if(h.smoke>0)for(let j=0;j<12;j++){g.fillStyle='#d1cbd0aa';g.fillRect(Math.round(h.x+Math.sin(t*3+j*8)*19),Math.round(h.y-6-(t*24+j*7)%37),5,4);}
@@ -385,7 +421,9 @@ function draw(dt){
   g.restore();
   return;
  }
- if(arena&&e){
+ if(battlePlus){
+   drawPlusBattle(g,battlePlus,hero);
+ }else if(arena&&e){
    drawArena(g,z,t);paintThreats(g,game);
    if(h.y<=e.y){hero();foe(e,e.scout);}else{foe(e,e.scout);hero();}
  }else{drawWorld(g,game,hero,foe,speech);drawMinimap(g,game);}
@@ -396,11 +434,29 @@ function draw(dt){
 }
 let icons='';
 function hud(){
- const d=game.data,e=game.enemy;const region=(d.inside?roomNames[d.zone]:e?regions[d.zone]:game.hero.x<650?chamberNames[d.zone]:guardianPlaces[d.zone])+' · '+d.cleared.filter(i=>i<3).length+'/3';
+ const {data:d,enemy:e,battlePlus}=game,dragon=battlePlus?.dragon;
+ const region=battlePlus
+   ?(dragon?'Modo batalla plus':'Modo batalla plus · '+Math.ceil(battlePlus.remaining)+' s')
+   :(d.inside?roomNames[d.zone]:e?regions[d.zone]:game.hero.x<650?chamberNames[d.zone]:guardianPlaces[d.zone])+' · '+d.cleared.filter(i=>i<3).length+'/3';
  if($('region').textContent!==region)$('region').textContent=region;
- $('hp').style.width=(100*d.hp/game.maxHp)+'%';$('sp').style.width=game.energy+'%';$('enemyHud').hidden=!e;
- $('lifeText').textContent=d.hp+' / '+game.maxHp;
- if(e){
+ $('hp').style.width=(100*game.hp/game.maxHp)+'%';$('sp').style.width=game.energy+'%';$('enemyHud').hidden=!e&&!dragon;
+ $('lifeText').textContent=game.hp+' / '+game.maxHp;
+ $('inventory').hidden=Boolean(battlePlus);
+ $('diamondBadge').hidden=!battlePlus;
+ if(battlePlus){
+   const kills=battlePlus.kills+' derrotados';
+   if($('plusKills').textContent!==kills)$('plusKills').textContent=kills;
+ }
+ if(dragon){
+   $('enemyName').textContent=dragonName;
+   $('enemyHP').style.width=100*dragon.hp/dragon.max+'%';
+   $('enemyHud').classList.remove('royal');
+   $('royalPhase').hidden=true;
+   $('prediction').textContent=dragon.phase==='land'?'Descendiendo':
+     dragon.phase==='recover'?'¡Guardia baja!':
+     dragon.phase==='wind'||dragon.phase==='attack'?dragonMoves[dragon.move].name:
+     dragon.fast?'Enfurecido':'En guardia';
+ }else if(e){
    $('enemyName').textContent=(e.scout?scoutNames[d.zone]:enemyNames[d.zone])+' · '+Math.max(0,e.hp)+'/'+e.max;
    $('enemyHP').style.width=100*Math.max(0,e.hp/e.max)+'%';
    const phase=royalPhases[e.phase-1];
@@ -443,9 +499,9 @@ function frame(now){
      display.drawImage(logical,0,0,scene.width,scene.height);
    }else{
      const dx=held('ArrowRight','KeyD')-held('ArrowLeft','KeyA'),dy=held('ArrowDown','KeyS')-held('ArrowUp','KeyW');
-     game.tick(dt,dx,dy);if(keys.has('KeyJ')&&game.mode==='arena')game.act('attack');
+     game.tick(dt,dx,dy);if(keys.has('KeyJ')&&['arena','plus'].includes(game.mode))game.act('attack');
      if(game.walk&&game.time-step>.37){audio.play('step');step=game.time;}
-     audio.track(game.mode!=='arena'?'map':game.data.zone===3?'king':'arena');audio.tick();followSpeech();draw(dt);
+     audio.track(game.battlePlus?(game.battlePlus.dragon?'dragon':'arena'):game.mode!=='arena'?'map':game.data.zone===3?'king':'arena');audio.tick();followSpeech();draw(dt);
      display.drawImage(logical,0,0,scene.width,scene.height);hud();
      if(game.time-lastSave>3){save();lastSave=game.time;}if(lastSave>game.time)lastSave=0;
    }

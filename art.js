@@ -143,6 +143,13 @@ function bookIcon(g){
   rect(g,'#fff1c2',6,18,13,2);
   rect(g,'#d95858',15,18,3,4);
 }
+function diamondIcon(g){
+  poly(g,'#163740',[[2,21],[7,14],[5,11],[7,9],[10,10],[18,2],[23,1],[22,7],[14,15],[15,18],[13,20],[10,17],[5,23]]);
+  poly(g,'#46c6cb',[[10,12],[19,3],[22,2],[20,7],[13,14]]);
+  poly(g,'#d8ffff',[[12,11],[19,3],[22,2],[19,5],[12,13]]);
+  poly(g,'#8fdedc',[[6,11],[8,10],[14,17],[13,18]]);
+  poly(g,'#dda86d',[[4,21],[9,15],[11,16],[5,22]]);
+}
 function fullIcon(g){
   const c='#f6d482',s='#152129';
   for(const [x,y,dx,dy] of [[3,3,1,1],[20,3,-1,1],[3,20,1,-1],[20,20,-1,-1]]){
@@ -189,6 +196,7 @@ export function emblem(canvas,type,index=0){
   if(type==='pause')pauseIcon(g);
   if(type==='heart')heartIcon(g);
   if(type==='bolt')boltIcon(g);
+  if(type==='diamond')diamondIcon(g);
   if(type==='weapon')weaponIcons[index](g);
   if(type==='item')itemIcons[index](g);
   g.restore();

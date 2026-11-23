@@ -19,9 +19,9 @@ export function drawHero(g,game,arena,talking=false){
  const h=game.hero,t=game.time,frame=heroPose(h,game.walk,t),face=game.face;
  shadow(g,h.x,h.y,arena?14:10);
  nativeActor(g,'hero',frame+(arena?16:0),h.x,h.y,face);
- if(!talking&&!game.data.inside&&(frame<8||frame===12||frame===13)){
+ if(!talking&&(arena||!game.data.inside)&&(frame<8||frame===12||frame===13)){
   const attacking=frame>=4&&frame<=7;
-  const weapon=attacking?(h.attackWeapon??game.data.weapon):game.data.weapon;
+  const weapon=attacking?(h.attackWeapon??game.weapon):game.weapon;
   if(attacking&&arena)heroStrike(g,weapon,h.x,h.y,face,weapons[weapon].reach,h.attack);
   heroWeapon(g,weapon,h.x,h.y,face,arena,frame);
  }

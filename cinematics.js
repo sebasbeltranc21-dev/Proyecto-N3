@@ -2,6 +2,8 @@ import {WORLD,throneGate,worlds} from './world.js';
 import {habit} from './learning.js';
 import {rect,oval,label} from './art.js';
 import {tile,nativeActor} from './atlas.js';
+import {drawCaldera} from './battle-plus-art.js';
+import {drawDiamondBlade} from './weapon-art.js';
 
 export const royalPhaseQuotes={
  2:{title:'Fase II · El Espejo',line:'«Tus pasos ya dibujan mi reflejo en la piedra.»'},
@@ -75,6 +77,12 @@ export function buildScript(id,game){
    {stage:'throne',step:2,speaker:'Rey Mimético',title:'La Corona Despierta',
     text:'«Y traes contigo la Espada del Alba… Muy bien. Tres formas tiene mi corona, y en cada una reflejaré quién eres realmente. ¡En guardia!»',sfx:'adapt'}
   ],
+  diamond_sword:[
+   {stage:'diamond_shrine',speaker:'Voz de la Caldera',title:'El Corazón del Diamante',
+    text:'Bajo el trono, una veta de diamante se abrió cuando cayó la corona. De su luz nació una espada capaz de partir la piedra con un solo tajo.',sfx:'sword'},
+   {stage:'diamond_shrine',speaker:'Viajero',title:'Espada de Diamante',
+    text:'La espada ya es mía. Resistiré 45 segundos en la caldera. Si el rugido que oigo es real, lo peor vendrá después.',sfx:'dragon_roar',raise:true}
+  ],
   victory:[
    {stage:'epilogue',step:0,speaker:'Narrador',title:'La Corona Quebrada',
     text:'Un último destello de la Espada del Alba parte en dos la corona del Rey Mimético. Los ecos atrapados durante un siglo se liberan en chispas doradas.',sfx:'win'},
@@ -134,7 +142,7 @@ export class CinematicDirector{
   if(!b)return;
   if(b.sfx){
    this.audio?.play(b.sfx);
-   if(b.sfx==='rumble'||b.sfx==='sword')this.onShake(b.sfx==='sword'?4:3,.38);
+   if(['rumble','sword','dragon_roar'].includes(b.sfx))this.onShake(b.sfx==='rumble'?3:4,.38);
   }
  }
  advance(){
@@ -231,6 +239,22 @@ export class CinematicDirector{
    nativeActor(g,'hero',16+(enter<1?Math.floor(t*9)%4:12),hx,206,1);
    oval(g,'#1b202966',ex,208,16,5);
    nativeActor(g,'foes',48+b.zone*4+(Math.floor(t*3)%2),ex,206,-1);
+  }else if(b.stage==='diamond_shrine'){
+   drawCaldera(g,t);
+   rect(g,'#0b172899',0,0,640,336);
+   const rise=Math.min(1,bt*1.4);
+   const pulse=Math.round(Math.sin(t*5)*6);
+   const swordY=(b.raise?190-rise*44:159)+Math.round(Math.sin(t*4)*5);
+   rect(g,'#58ecf032',274-pulse,33,92+2*pulse,205);
+   rect(g,'#a1ffe43f',305,33,30,205);
+   oval(g,'#53ede94d',320,208,58+pulse,13);
+   nativeActor(g,'hero',16+15,320,210,1);
+   drawDiamondBlade(g,320,swordY,2.1);
+   for(let i=0;i<26;i++){
+    const x=230+(i*53+t*24)%181,y=219-(t*40+i*17)%168;
+    rect(g,i%3?'#7cece7':'#efffff',x,y,2+i%2,2);
+    if(i%6===0){rect(g,'#e9ffff',x-3,y+1,8,1);rect(g,'#e9ffff',x+1,y-3,1,8);}
+   }
   }else if(b.stage==='sword_shrine'){
    tile(g,'arenas',3,0,0,640,336);
    rect(g,'#120e1e99',0,0,640,336);
