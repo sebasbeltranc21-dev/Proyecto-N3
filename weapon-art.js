@@ -38,32 +38,36 @@ function blade(g,kind,x,y,size,angle){
 const heroArms=[
  [ // Traveler: narrow straight steel, with a brass crossguard.
   ['#302b34',[[1,-4],[23,-4],[30,0],[23,4],[1,4]]],
-  ['#8c9da8',[[3,-3],[23,-3],[28,0],[23,3],[3,3]]],
-  ['#fff2ce',[[3,-2],[23,-2],[28,0],[3,0]]]
+  ['#808b9b',[[3,-3],[23,-3],[28,0],[23,3],[3,3]]],
+  ['#b7c1bd',[[3,-2],[23,-2],[28,0],[3,1]]],
+  ['#f8e8bf',[[7,-2],[23,-2],[27,0],[14,-1]]]
  ],
  [ // Knight: a broad blue blade with visibly angled shoulders.
-  ['#242739',[[2,-5],[8,-8],[30,-7],[38,0],[30,7],[8,8],[2,5]]],
-  ['#466a99',[[3,-4],[9,-7],[29,-6],[36,0],[29,6],[9,7],[3,4]]],
-  ['#81b9e1',[[4,-4],[10,-6],[29,-5],[36,0],[29,3],[9,4],[4,3]]],
-  ['#e1f7ff',[[5,-4],[10,-6],[29,-5],[36,0],[29,-2],[10,-3]]]
+  ['#292738',[[2,-4],[8,-7],[28,-6],[36,0],[28,6],[8,7],[2,4]]],
+  ['#4d627f',[[4,-4],[9,-6],[27,-5],[34,0],[27,5],[9,6],[4,3]]],
+  ['#7d9ab6',[[4,-3],[10,-5],[27,-4],[34,0],[27,2],[9,2],[4,1]]],
+  ['#c9d5d5',[[8,-3],[11,-5],[27,-4],[33,0],[16,-2]]]
  ],
  [ // Wind dagger: hooked, short and jade-edged.
-  ['#25333d',[[1,-4],[11,-6],[20,-4],[17,2],[9,5],[1,3]]],
-  ['#528a88',[[2,-3],[11,-5],[18,-3],[16,1],[9,4],[2,2]]],
-  ['#d4fff1',[[2,-3],[11,-5],[18,-3],[12,-2],[2,0]]]
+  ['#292e38',[[4,-3],[10,-4],[16,-6],[22,-6],[19,-2],[15,2],[10,4],[4,4]]],
+  ['#496461',[[5,-2],[10,-3],[16,-5],[20,-5],[17,-1],[14,1],[10,3],[5,3]]],
+  ['#8bad9b',[[5,-2],[10,-3],[16,-5],[20,-5],[16,-2],[10,0],[5,1]]],
+  ['#dbdcc0',[[11,-3],[16,-5],[20,-5],[16,-3]]]
  ],
  [ // Dusk hammer: square iron head banded in brass.
   ['#292639',[[12,-12],[24,-12],[29,-7],[29,8],[24,12],[12,11]]],
-  ['#66627d',[[13,-11],[24,-11],[28,-7],[28,7],[23,10],[13,10]]],
-  ['#b9c3cc',[[13,-10],[24,-10],[27,-7],[27,-2],[14,-2]]],
-  ['#e8b56a',[[17,-11],[21,-11],[21,10],[17,10]]]
+  ['#665b6b',[[13,-11],[24,-11],[28,-7],[28,7],[23,10],[13,10]]],
+  ['#a9a0a6',[[13,-10],[24,-10],[27,-7],[27,-2],[14,-2]]],
+  ['#8d634b',[[17,-11],[22,-11],[22,10],[17,10]]],
+  ['#dcb478',[[17,-10],[20,-10],[20,5],[17,7]]],
+  ['#d9ccc0',[[22,-9],[24,-9],[26,-7],[25,-6],[22,-7]]]
  ],
  [ // Runic sword: a stepped edge and bright inlaid runes.
   ['#26343b',[[1,-4],[12,-5],[16,-8],[23,-4],[30,-6],[39,0],[30,6],[23,4],[16,8],[12,5],[1,4]]],
   ['#448778',[[3,-3],[12,-4],[16,-7],[23,-3],[30,-5],[37,0],[30,5],[23,3],[16,7],[12,4],[3,3]]],
-  ['#9ef1b9',[[3,-2],[12,-3],[16,-6],[23,-2],[30,-4],[37,0],[30,0],[23,1],[16,4],[12,1],[3,1]]],
-  ['#eaffb2',[[14,-1],[18,-1],[18,1],[14,1]]],
-  ['#eaffb2',[[25,-1],[29,-1],[29,1],[25,1]]]
+  ['#89bea0',[[3,-2],[12,-3],[16,-6],[23,-2],[30,-4],[37,0],[30,0],[23,1],[16,4],[12,1],[3,1]]],
+  ['#e1e7a4',[[14,-1],[18,-1],[18,1],[14,1]]],
+  ['#e1e7a4',[[25,-1],[29,-1],[29,1],[25,1]]]
  ]
 ];
 const heroGuards=['#dea653','#82c1ee','#d4b179','#e8b56a','#a9eeb4'];
@@ -73,13 +77,15 @@ function playerSteel(g,weapon,x,y,scale,angle,face){
    Math.round(x+face*(u*c-v*s)),Math.round(y+u*s+v*c)
  ]));
  const haft=weapon===3?18:3;
- shape('#322635',[[-8,-3],[haft,-3],[haft,3],[-8,3]]);
- shape('#b87d51',[[-7,-1],[haft,-1],[haft,1],[-7,2]]);
+ const gripEnd=weapon===2?-5:-7;
+ shape('#30252d',[[gripEnd-1,-2],[haft,-2],[haft,3],[gripEnd-1,3]]);
+ shape('#90684c',[[gripEnd,-1],[haft,-1],[haft,1],[gripEnd,2]]);
+ shape('#d9a86e',[[gripEnd-1,-2],[gripEnd+1,-2],[gripEnd+1,2],[gripEnd-1,2]]);
  for(const [color,points] of heroArms[weapon])shape(color,points);
  if(weapon===3)return;
- const guard=weapon===1?8:weapon===2?4:5;
- shape('#322635',[[-3,-guard],[3,-guard],[4,guard],[-2,guard]]);
- shape(heroGuards[weapon],[[-2,-guard+1],[2,-guard+1],[3,guard-1],[0,guard-1]]);
+ const guard=weapon===1?7:weapon===2?4:5;
+ shape('#322635',[[1,-guard],[5,-guard],[5,guard],[2,guard]]);
+ shape(heroGuards[weapon],[[2,-guard+1],[4,-guard+1],[4,guard-1],[2,guard-1]]);
 }
 
 const swingAngles=[
@@ -89,19 +95,21 @@ const swingAngles=[
  [-2.13,-1.45,-.33,.72],
  [-1.67,-.51,.05,.63]
 ];
-const readyAngles=[-.95,-.65,-.28,-.88,-.80];
+const readyAngles=[-.86,-.72,-.58,-.92,-.76];
+// Hand anchors follow the walking, attack and idle frames in the hero atlas.
+const frontHand=[[11,21],[8,18],[9,17],[7,17],[11,17],[20,24],[17,6],[11,17]];
+const rearHand=[[-8,17],[-6,15],[-7,19],[-7,15],[-12,28],[-16,15],[-15,17],[-9,20]];
 export function heroWeapon(g,weapon,x,y,face,arena,frame){
  const attack=frame>=4&&frame<=7,phase=frame-4;
- const gripX=attack?[4,14,17,10][phase]:10;
- const gripY=attack?[21,22,18,16][phase]:17;
+ const [gripX,gripY]=frontHand[frame]??[9,13];
  const size=arena?1.25:1;
  const angle=attack?swingAngles[weapon][phase]:readyAngles[weapon];
  if(weapon===2){
-  const offAngle=attack?[.55,1.15,.32,.83][phase]:.21;
-  const offX=attack?[-6,-9,-13,-10][phase]:-8;
-  playerSteel(g,weapon,x+face*offX*size,y-16*size,.70*size,offAngle,-face);
+  const offAngle=attack?[-.24,.78,.42,.65][phase]:.54;
+  const [offX,offY]=rearHand[frame]??[-7,15];
+  playerSteel(g,weapon,x+face*offX*size,y-offY*size,.60*size,offAngle,-face);
  }
- playerSteel(g,weapon,x+face*gripX*size,y-gripY*size,.75*size,angle,face);
+ playerSteel(g,weapon,x+face*gripX*size,y-gripY*size,.69*size,angle,face);
 }
 
 export function heroStrike(g,weapon,x,y,face,reach,remaining){
