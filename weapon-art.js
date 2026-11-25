@@ -167,8 +167,8 @@ export function heroStrike(g,weapon,x,y,face,reach,remaining){
   if(weapon===4&&i%3===0)rect(g,color,px+face*4,py-4,2,2);
  }
 }
-export function drawDiamondBlade(g,x,y,scale){
- playerSteel(g,diamondIndex,x,y,scale,-Math.PI/2,1);
+export function drawUprightWeapon(g,weapon,x,y,scale){
+ playerSteel(g,weapon,x,y,scale,-Math.PI/2,1);
 }
 export function armedEnemy(g,e,z,t,pose){
  const kind=e.move||['lance','fan','slam','dash'][z],face=e.face||1,active=e.wind>0;

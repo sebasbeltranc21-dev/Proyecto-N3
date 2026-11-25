@@ -12,6 +12,7 @@ import {emblem,label,enemyNames,regions} from './art.js';
 import {CinematicDirector,royalPhaseQuotes} from './cinematics.js';
 import {dragonName,dragonMoves} from './battle-plus.js';
 import {drawPlusBattle} from './battle-plus-art.js';
+import {lessons,drawControlDemo} from './controls-guide.js';
 
 const $=id=>document.getElementById(id);
 const scene=$('scene'),modal=$('modal');
@@ -40,6 +41,7 @@ const graphics=[
 let artReady=false,speech=null;
 async function prepareGraphics(){
  $('start').disabled=true;$('startLabel').textContent='Cargando la isla…';
+ $('controlsBtn').disabled=true;
  try{
   await Promise.all(graphics.map(([id,path,columns,rows])=>loadAtlas(id,'assets/'+path,columns,rows)));
   [...$('zones').children].forEach((card,i)=>{
@@ -47,7 +49,8 @@ async function prepareGraphics(){
    tile(ctx,'arenas',i,0,0,c.width,c.height);stamp(ctx,'places',[0,1,6,7][i],29,43,38);
   });
   if(modal.open)paintMenu(menuZone);
-  artReady=true;$('startLabel').textContent=saved?(saved.data.royalTrialWon?'Ver mi aventura':'Continuar aventura'):'Comenzar aventura';
+  artReady=true;$('controlsBtn').disabled=false;
+  $('startLabel').textContent=saved?(saved.data.royalTrialWon?'Ver mi aventura':'Continuar aventura'):'Comenzar aventura';
  }catch{$('startLabel').textContent='Volver a cargar los gráficos';}
  $('start').disabled=false;
 }
@@ -199,7 +202,11 @@ function show(kind,tag,title,body,actions=[],zone=game.data.zone){
  $('dialogTitle').focus({preventScroll:true});
  modal.scrollTop=0;
 }
-function close(){if(modal.open)modal.close();keys.clear();paused=false;modalKind='';if(started)scene.focus({preventScroll:true});}
+function close(){
+ if(modal.open)modal.close();
+ keys.clear();paused=false;modalKind='';controlsDemo=null;
+ if(started)scene.focus({preventScroll:true});
+}
 
 function regionMenu(zone){
  const links=exits[zone];
@@ -216,10 +223,49 @@ function regionMenu(zone){
  });
 }
 
-const controls=[
- ['WASD / ↑↓←→','Moverse'],['J','Atacar / Interactuar / Continuar'],['Espacio','Rodar / Continuar'],
- ['1–9 / 0','Elegir casilla'],['Q / R','Cambiar arma u objeto'],['E','Usar objeto'],['Esc','Pausar / Saltar cinemática']
-];
+let controlsDemo=null;
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+function showControls(next=null,back=null){
+ if(!artReady||director.active)return;
+ const choices=lessons.map(l=>'<button type="button" data-lesson="'+l.id+'" aria-pressed="false"><kbd>'+
+   l.keys+'</kbd><span>'+l.name+'</span></button>').join('');
+ show('controls','Guía del viajero','Controles del juego',
+   '<div class="controls-demo"><canvas id="controlsCanvas" width="256" height="112" aria-hidden="true"></canvas>'+
+   '<div class="controls-copy"><h3 id="controlsName"></h3><p id="controlsDescription" aria-live="polite"></p></div></div>'+
+   '<div class="controls-list" aria-label="Demostraciones">'+choices+'</div>',
+   [button(next?'Entrar al juego':'Volver',()=>{close();(next||back)?.();})],0);
+ const buttons=[...$('dialogBody').querySelectorAll('[data-lesson]')];
+ const ctx=$('controlsCanvas').getContext('2d');
+ controlsDemo={buttons,ctx,back,time:0,key:'',lesson:lessons[0]};
+ for(const option of buttons)option.onclick=()=>selectLesson(option.dataset.lesson);
+ selectLesson(lessons[0].id);
+}
+function selectLesson(id,key=''){
+ const lesson=lessons.find(l=>l.id===id);
+ Object.assign(controlsDemo,{lesson,key,time:0});
+ $('controlsName').textContent=lesson.name;
+ $('controlsDescription').textContent=lesson.text;
+ for(const option of controlsDemo.buttons)option.setAttribute('aria-pressed',String(option.dataset.lesson===id));
+ drawControlDemo(controlsDemo.ctx,id,reducedMotion.matches?1.3:0,key);
+}
+const controlKeys={
+ KeyW:['move','W'],ArrowUp:['move','W'],KeyA:['move','A'],ArrowLeft:['move','A'],
+ KeyS:['move','S'],ArrowDown:['move','S'],KeyD:['move','D'],ArrowRight:['move','D'],
+ KeyJ:['attack','J'],Space:['roll'],KeyQ:['weapon'],KeyR:['item'],KeyE:['use'],Enter:['scene']
+};
+function previewKey(e){
+ if(e.repeat||e.ctrlKey||e.altKey||e.metaKey)return;
+ if((e.code==='Space'||e.code==='Enter')&&e.target instanceof HTMLButtonElement)return;
+ const example=controlKeys[e.code]??(/^Digit[0-9]$/.test(e.code)?['slot',e.code.at(-1)]:null);
+ if(!example)return;
+ e.preventDefault();
+ selectLesson(...example);
+}
+function dismiss(){
+ const back=controlsDemo?.back;
+ close();
+ back?.();
+}
 function codex(){
  const m=game.memory,p=m.predict(50,100*game.data.hp/game.maxHp);
  show('codex','Códice del viajero','La memoria de la isla',
@@ -227,10 +273,8 @@ function codex(){
    '<dl class="menuStats"><div><dt>Acciones vistas</dt><dd>'+m.samples+'</dd></div>'+
    '<div><dt>Predicciones acertadas</dt><dd>'+m.hits+' / '+m.scored+'</dd></div>'+
    '<div class="memoryRead"><dt>Lectura a corta distancia</dt><dd>'+habit(p.action)+'</dd></div></dl>'+
-   '<p>Reúne los sellos de la pradera, el bosque y las ruinas para abrir el castillo.</p>'+
-   '<details class="menuControls"><summary>Controles</summary><ul>'+
-   controls.map(([key,action])=>'<li><span>'+action+'</span><kbd>'+key+'</kbd></li>').join('')+'</ul></details>',
-   [button(started?'Volver al juego':'Volver a la portada',close)]);
+   '<p>Reúne los sellos de la pradera, el bosque y las ruinas para abrir el castillo.</p>',
+   [button(started?'Volver al juego':'Volver a la portada',close),button('Ver controles',()=>showControls(null,codex))]);
 }
 function pause(){
  if(!started||modal.open||director.active)return;
@@ -281,13 +325,15 @@ function ending(won){
      '<dl class="menuStats"><div><dt>Acciones recordadas</dt><dd>'+m.samples+'</dd></div></dl>'
       :'<p class="menuLead">Vuelves a la región con la vida completa. Tus armas, sellos y los recuerdos aprendidos siguen contigo.</p>',
    [...(won?[...battlePlusActions(),button('Seguir explorando',()=>{close();game.mode='map';game.grace=1;tell('La isla está en paz · quedan lugares por descubrir');updateCards();save();})]:[]),
-   button(won?'Nueva aventura':'Volver al sendero',()=>{close();if(won){game=bindGame(new Adventure(null,event));game.markCinematic('intro');runCinematic('intro',()=>tell('Busca el primer sello'));}else game.retry();effects.length=0;updateCards();save();})]);
+   button(won?'Nueva aventura':'Volver al sendero',()=>{
+    if(won)showControls(()=>{game=bindGame(new Adventure(null,event));effects.length=0;updateCards();enterAdventure();},()=>ending(true));
+    else{close();game.retry();effects.length=0;updateCards();save();}
+   })]);
 }
-$('close').onclick=close;modal.addEventListener('cancel',e=>{e.preventDefault();if(!resultDialogs.includes(modalKind))close();});
+$('close').onclick=dismiss;modal.addEventListener('cancel',e=>{e.preventDefault();if(!resultDialogs.includes(modalKind))dismiss();});
 $('cineBox').onclick=()=>{if(director.active)director.advance();};
 $('cineSkip').onclick=()=>{if(director.active)director.skip();};
-$('start').onclick=()=>{
- if(!artReady){void prepareGraphics();return;}
+function enterAdventure(){
  audio.start();started=true;$('cover').hidden=true;$('hud').hidden=false;scene.focus();
  $('touch').hidden=!matchMedia('(pointer: coarse), (max-width: 760px)').matches;
  if(game.data.royalTrialWon){game.mode='won';ending(true);}
@@ -299,7 +345,12 @@ $('start').onclick=()=>{
   tell(game.data.zone===3?'El altar del Alba y el portón están al este del puente':'J para hablar o entrar · Cruza el puente hacia el guardián');
  }
  save();
+}
+$('start').onclick=()=>{
+ if(!artReady){void prepareGraphics();return;}
+ showControls(enterAdventure);
 };
+$('controlsBtn').onclick=()=>showControls(enterAdventure);
 $('codexBtn').onclick=codex;$('pauseBtn').onclick=pause;
 $('soundBtn').onclick=()=>{audio.volume((audio.level+1)%3);audio.start();audio.play('click');renderVolume();try{localStorage.setItem(soundSlot,audio.level);}catch{}};
 const gameView=$('gameView');
@@ -345,6 +396,7 @@ function engage(k){
  if(actions[k])game.act(actions[k]);
 }
 window.addEventListener('keydown',e=>{
+ if(modalKind==='controls'&&controlsDemo){previewKey(e);return;}
  if(director.active){
   if(e.code==='Escape'){e.preventDefault();director.skip();return;}
   if(['KeyJ','Space','Enter'].includes(e.code)){e.preventDefault();if(!e.repeat)director.advance();return;}
@@ -417,7 +469,13 @@ function draw(dt){
   if(shakeTime<=0)shakeMag=0;
  }
  if(director.active){
-  director.draw(g,game,cam=>drawWorld(g,game,hero,foe,null,cam));
+  director.draw(g,game,(cam,shot,elapsed)=>{
+   const zone=shot.zone??z,time=t+elapsed;
+   const view={data:{...d,zone,inside:false},hero:h,time,weapon:game.weapon,walk:false,face:game.face,
+    patrol:game.patrol,scout:game.scout};
+   drawWorld(g,view,()=>drawHero(g,view,false),
+    (unit,scout)=>drawOpponent(g,unit,zone,time,false,scout,h.x),null,cam,!shot.establishing);
+  });
   g.restore();
   return;
  }
@@ -490,6 +548,10 @@ function hud(){
 }
 function frame(now){
  const dt=Math.min(.045,(now-last)/1000||.016);last=now;
+ if(modalKind==='controls'&&controlsDemo&&!reducedMotion.matches){
+   controlsDemo.time+=dt;
+   drawControlDemo(controlsDemo.ctx,controlsDemo.lesson.id,controlsDemo.time,controlsDemo.key);
+ }
  if(started&&!paused){
    if(director.active){
      director.tick(dt,game);

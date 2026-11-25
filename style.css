@@ -143,6 +143,8 @@ header{
   font-size:clamp(9px,.95vw,12px);line-height:1.65;
   margin:0 0 18px;color:var(--parchment);text-shadow:2px 2px 0 var(--ink);
 }
+.coverActions{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+.coverActions .chrome{padding:7px 10px;font-size:clamp(8px,.86vw,10px)}
 .gold{
   background:#f2bc4e;color:#261a12;
   border:3px solid var(--ink);
@@ -423,7 +425,7 @@ html.playing-full,html.playing-full body{overflow:hidden}
   margin:0 0 9px;font:11px/1.4 Silk,monospace;
   color:var(--menu-accent);text-shadow:1px 1px 0 var(--ink);
 }
-.menuStats,.menuSeals,.menuPlaces,.menuControls ul{margin:0 0 14px;padding:0;list-style:none}
+.menuStats,.menuSeals,.menuPlaces{margin:0 0 14px;padding:0;list-style:none}
 .menuStats,.menuSeals{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(min(148px,100%),1fr));gap:8px;
 }
@@ -444,7 +446,7 @@ html.playing-full,html.playing-full body{overflow:hidden}
 .menuSeals .collected{border-color:var(--brass);background:#1a2b24}
 .menuSeals small{display:block;margin-top:2px}
 .menuPlaces{display:grid;gap:4px}
-.menuPlaces li,.menuControls li{
+.menuPlaces li{
   padding:7px 10px;background:#19312e;
   border:2px solid #2d514b;border-left:4px solid var(--menu-edge);
   font-size:10px;
@@ -466,11 +468,33 @@ html.playing-full,html.playing-full body{overflow:hidden}
   text-shadow:none;
 }
 #modal #dialogActions .chrome:first-child:hover{background:#ffd377}
-.menuControls{border:2px solid #3f665c;background:#0e1e1d}
-.menuControls summary{padding:9px 10px;cursor:pointer;color:var(--menu-accent);font-size:10px}
-.menuControls ul{margin:0;padding:0 8px 8px;display:grid;gap:4px}
-.menuControls li{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.menuControls kbd{font:9px/1.25 Silk,monospace;white-space:nowrap}
+
+#modal[data-kind="controls"]{width:min(612px,calc(100% - 24px))}
+#modal[data-kind="controls"] .dialogHead{min-height:0;padding:13px 48px 12px 16px}
+#modal[data-kind="controls"] #menuArt{display:none}
+#modal[data-kind="controls"] #dialogBody{padding:12px 14px}
+.controls-demo{
+  display:grid;grid-template-columns:1.35fr 1fr;align-items:center;gap:14px;
+  padding:8px;background:#0f211f;border:2px solid #537267;margin-bottom:10px;
+  box-shadow:inset 0 -2px 0 #091414,3px 3px 0 var(--ink);
+}
+#controlsCanvas{
+  width:100%;display:block;aspect-ratio:256/112;image-rendering:pixelated;
+  border:2px solid var(--brass);
+}
+.controls-copy{min-width:0;padding:4px 5px;color:var(--parchment)}
+#dialogBody .controls-copy h3{margin:0 0 5px;color:var(--cream);font-size:12px}
+#dialogBody .controls-copy p{margin:0;font-size:10px}
+.controls-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.controls-list button{
+  display:grid;align-content:center;gap:3px;min-height:42px;
+  padding:5px 7px;text-align:left;font:9px/1.25 Silk,monospace;
+  color:var(--parchment);background:#182f2d;border:2px solid #46665f;
+  box-shadow:inset 0 -2px 0 #0e201f;
+}
+.controls-list kbd{color:#acdccc;font:inherit}
+.controls-list button[aria-pressed="true"]{border-color:var(--brass);background:#2c473b;color:var(--cream)}
+.controls-list button[aria-pressed="true"] kbd{color:#ffdc87}
 
 /* Classic 16-bit JRPG Cinematic Dialogue Window (No blurry shadows!) */
 #cinematic{
@@ -486,9 +510,11 @@ html.playing-full,html.playing-full body{overflow:hidden}
 #cineBox{
   position:relative;
   width:min(94%,576px);
-  background:#101c26f7;
+  background-color:#152724f7;
+  background-image:repeating-conic-gradient(#0a1c1b45 0% 25%,transparent 0% 50%);
+  background-size:4px 4px;
   border:3px solid var(--brass);
-  box-shadow:inset 0 0 0 2px var(--ink),inset 0 0 0 4px #28424d,4px 4px 0 var(--ink);
+  box-shadow:inset 0 0 0 2px var(--ink),inset 0 0 0 4px #3b5750,4px 4px 0 var(--ink);
   padding:14px 15px 9px;
   cursor:pointer;outline:none;
 }
@@ -545,6 +571,7 @@ html.playing-full,html.playing-full body{overflow:hidden}
   .frame{padding:4px}.coverText{max-width:86%;padding:10px 12px}
   .coverText h1{font-size:clamp(22px,6.5vw,34px);margin:0 0 8px}
   .coverText p{font-size:8px;margin-bottom:10px}
+  .coverActions{gap:5px}.coverActions .chrome{min-height:30px;padding:4px 6px}
   .gold{min-height:32px;padding:6px 10px;font-size:9px}
   .coverStamp{font-size:6px;right:4px;bottom:4px;padding:3px 5px}
   #zones{grid-template-columns:1fr 1fr;gap:6px}.zoneCard{min-height:56px}
@@ -560,6 +587,11 @@ html.playing-full,html.playing-full body{overflow:hidden}
   #cinematic{padding:4px 6px 5px}#cineBox{padding:8px 9px 6px}
   #cineText{font-size:8px;min-height:2.6em}#cineSkip{top:3px;right:4px;padding:2px 6px;font-size:7px}
   #speech{max-width:68%;font-size:8px;padding:5px 6px;border-width:2px}
+}
+@media(max-width:430px){
+  .controls-demo{grid-template-columns:1fr;gap:4px;margin-bottom:7px}
+  .controls-copy{min-height:54px}
+  .controls-list button{padding-inline:4px;font-size:8px}
 }
 @media(min-width:601px){.wide{display:block}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}

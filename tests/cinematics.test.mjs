@@ -79,3 +79,25 @@ test('Snapshot preserves seenCinematics and found items without shared array mut
  assert.equal(restored.hasSeenCinematic('castle_arrival'),true);
  assert.equal(restored.hasSeenCinematic('dawn_sword'),false);
 });
+
+test('Story shots use the actual island landmarks and leave the saved location alone',()=>{
+ const game=new Adventure();
+ const snapshot=game.snapshot();
+ const director=new CinematicDirector(null);
+ const canvas=new Proxy({},{get:(g,key)=>g[key]??(()=>{})});
+ const mapShots=[];
+ const drawMap=(camera,shot)=>mapShots.push({camera,zone:shot.zone,focus:shot.focus});
+ for(const id of ['intro','dawn_sword','victory']){
+  director.play(id,game);
+  while(director.active){
+   director.tick(.8,game);
+   director.draw(canvas,game,drawMap);
+   director.advance();director.advance();
+  }
+ }
+ const mill=worlds[0].houses.find(place=>place.type==='mill');
+ assert.deepEqual(mapShots.slice(0,2).map(({zone,focus})=>[zone,focus]),[[3,throneGate],[0,mill]]);
+ assert.ok(mapShots.some(({focus})=>focus===worlds[3].chest));
+ assert.equal(mapShots.at(-1).focus,mill);
+ assert.deepEqual(game.snapshot(),snapshot);
+});

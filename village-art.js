@@ -3,6 +3,7 @@ import {rect,oval,rng,label,sign} from './art.js';
 import {material,stamp,tile} from './atlas.js';
 import {cameraPosition} from './speech.js';
 import {drawResident} from './actors.js';
+import {drawVillageStructure} from './structures.js';
 
 const terrainCache=new Map();
 // Strictly separate building sprites: tile 7 (the grand castle) is reserved ONLY for 'gate'.
@@ -99,50 +100,8 @@ function terrain(z){
  bridge(g,655,WORLD.road,23);bridge(g,riverX(footbridges[z]),footbridges[z],13);
  terrainCache.set(z,c);return c;
 }
-function drawWatchtower(g,o,t){
- const x=Math.round(o.x),y=Math.round(o.y);
- oval(g,'#24283455',x+2,y,24,6);
- rect(g,'#262433',x-19,y-58,38,59);
- rect(g,'#6a677d',x-17,y-56,34,55);
- rect(g,'#89859e',x-15,y-56,11,55);
- rect(g,'#4f4c61',x+7,y-56,10,55);
- for(let row=0;row<6;row++){
-  rect(g,'#3b384c',x-17,y-8-row*9,34,1);
-  rect(g,'#3b384c',x-6+(row%2)*8,y-17-row*9,1,9);
- }
- rect(g,'#262433',x-23,y-69,46,13);
- rect(g,'#7b7790',x-21,y-67,42,9);
- for(const mx of [-21,-9,3,15]){
-  rect(g,'#262433',x+mx-1,y-75,9,8);
-  rect(g,'#9a95ae',x+mx,y-74,7,6);
- }
- rect(g,'#262433',x-4,y-44,8,14);
- rect(g,'#ffcf78',x-2,y-42,4,10);
- const sway=Math.round(Math.sin(t*3+x)*1.5);
- rect(g,'#592536',x-6+sway,y-25,12,15);
- rect(g,'#b63d4f',x-5+sway,y-24,10,12);
- rect(g,'#f2c975',x-2+sway,y-20,4,5);
- const flick=Math.sin(t*9+x)>0?1:0;
- rect(g,'#ff9642',x-3,y-79-flick,6,5);
- rect(g,'#fff1a8',x-1,y-78-flick,2,3);
-}
-function drawCottage(g,o){
- const x=Math.round(o.x),y=Math.round(o.y);
- oval(g,'#2f393245',x+2,y,30,6);
- rect(g,'#2a242b',x-28,y-36,56,37);
- rect(g,'#e2d2b0',x-26,y-34,52,33);
- rect(g,'#c6b28f',x+8,y-34,18,33);
- rect(g,'#6e4a35',x-26,y-34,4,33);rect(g,'#6e4a35',x+22,y-34,4,33);rect(g,'#6e4a35',x-26,y-20,52,3);
- rect(g,'#262c33',x-32,y-53,64,20);
- rect(g,'#4b7a6e',x-30,y-51,60,16);
- rect(g,'#689f8d',x-28,y-49,56,5);
- rect(g,'#365c54',x-30,y-39,60,4);
- rect(g,'#3b2822',x-17,y-17,12,16);rect(g,'#8c593c',x-15,y-15,8,14);
- rect(g,'#3b2822',x+4,y-28,12,10);rect(g,'#ffd987',x+6,y-26,8,6);
-}
 function drawPlace(g,o,z,t){
- if(o.type==='watchtower'){drawWatchtower(g,o,t);return;}
- if(o.type==='cottage'){drawCottage(g,o);return;}
+ if(drawVillageStructure(g,o))return;
  const size=Math.round(o.width*(o.type==='mill'?1.65:o.type==='gate'?1.68:1.24));
  oval(g,'#313a3445',o.x+3,o.y,Math.floor(o.width*.45),5);
  stamp(g,'places',roofTiles[o.type],o.x,o.y+2,size);
@@ -206,7 +165,7 @@ export function drawArena(g,z,t){
   else if(z===1||i%3===0)rect(g,z===1?'#e5dd8b':'#edd8aa',x,y,2,1);
  }
 }
-export function drawWorld(g,game,drawHero,drawFoe,speech,cameraOverride=null){
+export function drawWorld(g,game,drawHero,drawFoe,speech,cameraOverride=null,showActors=true){
  const {hero:h,data:d,time:t}=game,z=d.zone,w=worlds[z];
  const request=cameraOverride?null:interaction(game);
  if(d.inside&&!cameraOverride){
@@ -221,9 +180,13 @@ export function drawWorld(g,game,drawHero,drawFoe,speech,cameraOverride=null){
   const y=Math.floor((i*39+t*7)%WORLD.height);
   if(Math.abs(y-314)>27&&Math.abs(y-footbridges[z])>15)rect(g,'#c8ebd499',riverX(y)+Math.sin(i*9+t*.8)*18,y,4,1);
  }
- const entries=[...w.houses,...w.props,...w.people.map((n,i)=>({...townsperson(n,t,i),walkIndex:i})),{...w.chest,type:'chest'},{...h,type:'hero'}];
+ const entries=[...w.houses,...w.props,...w.people.map((n,i)=>({...townsperson(n,t,i),walkIndex:i})),{...w.chest,type:'chest'}];
  discoveries[z].forEach((a,i)=>{if(!d.found.includes(z*2+i))entries.push({...a,type:'relic'});});
- if(z!==3&&!d.cleared.includes(z))entries.push({...game.patrol,type:'guardian'});if(!d.scouts.includes(z))entries.push({...game.scout,type:'scout'});
+ if(showActors){
+  entries.push({...h,type:'hero'});
+  if(z!==3&&!d.cleared.includes(z))entries.push({...game.patrol,type:'guardian'});
+  if(!d.scouts.includes(z))entries.push({...game.scout,type:'scout'});
+ }
  sign(g,33,333,'left','OESTE');sign(g,WORLD.width-37,333,'right','ESTE');
  for(const o of entries.sort((a,b)=>a.y-b.y)){
   if(o.x<cx-120||o.x>cx+760||o.y<cy-20||o.y>cy+470)continue;
@@ -247,7 +210,7 @@ export function drawWorld(g,game,drawHero,drawFoe,speech,cameraOverride=null){
    default:if(w.houses.includes(o))drawPlace(g,o,z,t);else drawProp(g,o);
   }
  }
- if(z===3&&!d.royalTrialWon){
+ if(!cameraOverride&&z===3&&!d.royalTrialWon){
   const labelColor=d.unlocked.includes(4)?'#ffe69e':'#ffbf88';
   label(g,d.unlocked.includes(4)?'SALÓN DEL TRONO':'PORTÓN DEL CASTILLO',throneGate.x,throneGate.y-52,labelColor,8);
  }

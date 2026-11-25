@@ -24,6 +24,14 @@ export function stamp(g,name,index,x,y,size,face=1,height=size){
  tile(g,name,index,Math.round(x)-Math.floor(size/2),Math.round(y)-height,size,height,face<0);
 }
 
+export function tilePart(g,name,index,[sx,sy,sw,sh],x,y,width,height){
+ const sheet=sheets.get(name);
+ if(!sheet)return;
+ const {image,columns,width:w,height:h}=sheet;
+ g.imageSmoothingEnabled=false;
+ g.drawImage(image,index%columns*w+sx,Math.floor(index/columns)*h+sy,sw,sh,x,y,width,height);
+}
+
 // Each animated sheet contains native-resolution poses on equal transparent cells.
 // Drawing a whole cell at 1:1 avoids resampling a face or changing its width per frame.
 export function nativeActor(g,name,index,x,y,face=1){
