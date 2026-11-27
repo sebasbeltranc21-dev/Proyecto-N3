@@ -12,6 +12,8 @@ import {emblem,label,enemyNames,regions} from './art.js';
 import {CinematicDirector,royalPhaseQuotes} from './cinematics.js';
 import {dragonName,dragonMoves} from './battle-plus.js';
 import {drawPlusBattle} from './battle-plus-art.js';
+import {questTitles,questJournal,guardRounds,trialNames} from './quests.js';
+import {questRoom} from './quest-art.js';
 import {lessons,drawControlDemo} from './controls-guide.js';
 
 const $=id=>document.getElementById(id);
@@ -214,6 +216,7 @@ function regionMenu(zone){
    '<p class="menuLead">'+descriptions[zone]+'</p>'+
    '<h3>Lugares</h3><ul class="menuPlaces">'+
    [chamberNames[zone],roomNames[zone],guardianPlaces[zone]].map(name=>'<li>'+name+'</li>').join('')+'</ul>'+
+   '<h3>'+questTitles[zone]+'</h3><p>'+questJournal(game.data)[zone]+'</p>'+
    '<nav class="menuRoutes" aria-label="Regiones vecinas"></nav>',[],zone);
  const routes=$('dialogBody').querySelector('nav');
  ['Oeste','Este'].forEach((direction,i)=>{
@@ -266,6 +269,17 @@ function dismiss(){
  close();
  back?.();
 }
+function showQuestJournal(){
+ const journal=questJournal(game.data);
+ const quests=Object.values(game.data.quests);
+ const entries=journal.map((goal,i)=>'<li class="'+(quests[i].done?'completed':'')+'">'+
+   '<h3>'+questTitles[i]+(quests[i].done?' <span aria-label="Completada">✓</span>':'')+'</h3>'+
+   '<small>'+regions[i]+'</small><p>'+goal+'</p></li>').join('');
+ const count=quests.filter(quest=>quest.done).length;
+ show('quests','Códice del viajero','Misiones secundarias',
+   '<p class="menuLead">'+count+' / 4 completadas</p><ol class="questJournal">'+entries+'</ol>',
+   [button(started?'Volver al juego':'Volver a la portada',close),button('Abrir códice',codex)]);
+}
 function codex(){
  const m=game.memory,p=m.predict(50,100*game.data.hp/game.maxHp);
  show('codex','Códice del viajero','La memoria de la isla',
@@ -274,10 +288,16 @@ function codex(){
    '<div><dt>Predicciones acertadas</dt><dd>'+m.hits+' / '+m.scored+'</dd></div>'+
    '<div class="memoryRead"><dt>Lectura a corta distancia</dt><dd>'+habit(p.action)+'</dd></div></dl>'+
    '<p>Reúne los sellos de la pradera, el bosque y las ruinas para abrir el castillo.</p>',
-   [button(started?'Volver al juego':'Volver a la portada',close),button('Ver controles',()=>showControls(null,codex))]);
+   [button(started?'Volver al juego':'Volver a la portada',close),button('Ver controles',()=>showControls(null,codex)),button('Misiones',showQuestJournal)]);
 }
 function pause(){
  if(!started||modal.open||director.active)return;
+ if(game.sideTrial){
+  show('pause','Misión secundaria','Duelo en pausa',
+    '<p class="menuLead">Puedes reanudar el duelo o volver al punto donde lo empezaste.</p>',
+    [button('Continuar',close),button('Salir del desafío',()=>{close();game.finishSideTrial(false);})]);
+  return;
+ }
  if(game.battlePlus){
   show('pause','Modo batalla plus','Juego en pausa',
     '<p class="menuLead">El cronómetro se reanuda al continuar.</p>',
@@ -293,7 +313,7 @@ function pause(){
  show('pause','Campamento','Juego en pausa',
    '<p class="menuLead">'+regions[game.data.zone]+'</p>'+
    '<h3>Sellos recuperados <span>'+count+' / 3</span></h3><ul class="menuSeals">'+seals+'</ul>',
-   [button('Continuar',close),button('Abrir códice',codex),...battlePlusActions()]);
+   [button('Continuar',close),button('Abrir códice',codex),button('Misiones',showQuestJournal),...battlePlusActions()]);
 }
 function battlePlusActions(){
  return game.canPlayBattlePlus&&['map','won'].includes(game.mode)?[button('Modo batalla plus',startBattlePlus)]:[];
@@ -405,6 +425,7 @@ window.addEventListener('keydown',e=>{
  if(e.code==='Escape'&&immersive&&!modal.open){e.preventDefault();leaveFull();return;}
  if(!started||modal.open||e.ctrlKey||e.altKey||e.metaKey)return;
  if(e.code==='Escape'){e.preventDefault();pause();return;}
+ if(e.code==='KeyM'){e.preventDefault();if(!e.repeat)showQuestJournal();return;}
  if(/^Digit[0-9]$/.test(e.code)){
    e.preventDefault();if(!e.repeat)selectSlot((Number(e.code.slice(-1))+9)%10);
    return;
@@ -455,7 +476,9 @@ function draw(dt){
    if(h.heal>0)label(g,'✚',h.x,h.y-56,'#b9f3ac');
  };
  const foe=(unit,scout=false)=>{
-   drawOpponent(g,unit,z,t,arena,scout,h.x);
+   const trial=game.sideTrial?.kind;
+   const visualZone=trial==='guard'?2:z;
+   drawOpponent(g,unit,visualZone,t,arena,trial==='forest'||scout,h.x);
    const size=z===3?83:65;
    if(e?.stun>0)label(g,'✦ ✦',unit.x,unit.y-55,'#ffe58d');
    if(!arena)label(g,scout?'•':'◆',unit.x,unit.y-size*.78+Math.round(Math.sin(t*3)*2),scout?'#f2b69d':'#ffee99',10);
@@ -482,7 +505,9 @@ function draw(dt){
  if(battlePlus){
    drawPlusBattle(g,battlePlus,hero);
  }else if(arena&&e){
-   drawArena(g,z,t);paintThreats(g,game);
+   if(game.sideTrial?.kind==='forest')questRoom(g,'forest',t,true);
+   else drawArena(g,z,t);
+   paintThreats(g,game);
    if(h.y<=e.y){hero();foe(e,e.scout);}else{foe(e,e.scout);hero();}
  }else{drawWorld(g,game,hero,foe,speech);drawMinimap(g,game);}
  for(let i=effects.length-1;i>=0;i--){const f=effects[i];f.age+=dt;label(g,f.text,f.x,f.y-f.age*24,'#fff0ac',10);if(f.age>.65)effects.splice(i,1);}
@@ -495,6 +520,9 @@ function hud(){
  const {data:d,enemy:e,battlePlus}=game,dragon=battlePlus?.dragon;
  const region=battlePlus
    ?(dragon?'Modo batalla plus':'Modo batalla plus · '+Math.ceil(battlePlus.remaining)+' s')
+   :game.sideTrial?.kind==='guard'?'Duelo '+(game.sideTrial.round+1)+' / 3 · '+guardRounds[game.sideTrial.round].name
+   :d.sideRoom==='forest'?'Gruta de las Luciérnagas'
+   :d.sideRoom==='ruins'?'Cámara de las Tablillas'
    :(d.inside?roomNames[d.zone]:e?regions[d.zone]:game.hero.x<650?chamberNames[d.zone]:guardianPlaces[d.zone])+' · '+d.cleared.filter(i=>i<3).length+'/3';
  if($('region').textContent!==region)$('region').textContent=region;
  $('hp').style.width=(100*game.hp/game.maxHp)+'%';$('sp').style.width=game.energy+'%';$('enemyHud').hidden=!e&&!dragon;
@@ -515,7 +543,8 @@ function hud(){
      dragon.phase==='wind'||dragon.phase==='attack'?dragonMoves[dragon.move].name:
      dragon.fast?'Enfurecido':'En guardia';
  }else if(e){
-   $('enemyName').textContent=(e.scout?scoutNames[d.zone]:enemyNames[d.zone])+' · '+Math.max(0,e.hp)+'/'+e.max;
+   const name=game.sideTrial?trialNames[game.sideTrial.kind==='guard'?1:0]:e.scout?scoutNames[d.zone]:enemyNames[d.zone];
+   $('enemyName').textContent=name+' · '+Math.max(0,e.hp)+'/'+e.max;
    $('enemyHP').style.width=100*Math.max(0,e.hp/e.max)+'%';
    const phase=royalPhases[e.phase-1];
    $('enemyHud').classList.toggle('royal',Boolean(phase));
@@ -525,7 +554,7 @@ function hud(){
    $('prediction').textContent=e.exposed>0?'¡Engañado! Contraataque disponible':
      [samples+' recuerdos',attackCaption(e),e.read].filter(Boolean).join(' · ');
  }
- const key=[d.weapon,d.item,...d.bag,'gear',...d.unlocked].join('/');
+ const key=[d.weapon,d.item,Boolean(game.sideTrial),...d.bag,'gear',...d.unlocked].join('/');
  if(key!==icons){
    icons=key;
    for(const {button,name,gear,index,key:shortcut} of inventorySlots){
@@ -541,7 +570,7 @@ function hud(){
        button.title+=' · Daño '+damage+' · Alcance '+reach+' · '+String(delay).replace('.',',')+' s entre ataques · '+cost+' de energía';
      }
    }
-   $('useBtn').disabled=!d.bag[d.item];
+   $('useBtn').disabled=!d.bag[d.item]||Boolean(game.sideTrial);
    $('useBtn').title='Usar '+items[d.item]+' [E]';
  }
  const msg=game.time<messageUntil?message:'';if($('toast').textContent!==msg)$('toast').textContent=msg;

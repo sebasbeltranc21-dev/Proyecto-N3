@@ -1,3 +1,5 @@
+import {questPoints,millShortcutY} from './quests.js';
+
 // World positions are the characters' feet. The same footprints drive drawing and collision.
 export const WORLD={width:1344,height:608,road:314,bridgeX:655};
 export const footbridges=[158,454,184,446];
@@ -44,8 +46,8 @@ export const worlds=layouts.map((buildings,z)=>{
 });
 export const throneGate={x:928,y:246};
 export function riverX(y){return Math.round(655+24*Math.sin((y-314)/95));}
-export function canWalk(z,x,y){
- if(Math.abs(x-riverX(y))<30&&Math.abs(y-WORLD.road)>24&&Math.abs(y-footbridges[z])>13)return false;
+export function canWalk(z,x,y,shortcut=false){
+ if(Math.abs(x-riverX(y))<30&&Math.abs(y-WORLD.road)>24&&Math.abs(y-footbridges[z])>13&&!(z===0&&shortcut&&Math.abs(y-millShortcutY)<=13))return false;
  for(const o of [...worlds[z].houses,...worlds[z].props]){
   if(o.solid&&Math.abs(x-o.x)<o.width/2+3&&y>o.y-(o.door||o.width>60?26:12)&&y<o.y+3)return false;
  }
@@ -62,15 +64,19 @@ export function safePosition(z,x,y){
 export function townsperson(n,t,i){return {...n,x:n.x+Math.sin(t*.49+i*2)*10,y:n.y+Math.sin(t*.46+i)*4};}
 export function interaction(game){
  const {data:d,hero:h}=game;
+ if(d.sideRoom)return nearest(questPoints(game),h);
  if(d.inside){
   if(Math.hypot(h.x-319,h.y-273)<42)return {type:'leave',title:'SALIR'};
   if(Math.hypot(h.x-335,h.y-166)<56)return {type:'service',title:['DESCANSAR','RECOGER FRUTA','ESTUDIAR','REPARAR ESCUDO'][d.zone]};
   return null;
  }
  const w=worlds[d.zone];
- const candidates=[{...w.houses[0],y:w.houses[0].y+6,type:'door',title:'ENTRAR'},...w.people.map((n,i)=>({...townsperson(n,game.time,i),title:'HABLAR'}))];
+ const candidates=[...questPoints(game),{...w.houses[0],y:w.houses[0].y+6,type:'door',title:'ENTRAR'},...w.people.map((n,i)=>({...townsperson(n,game.time,i),title:'HABLAR'}))];
  if(!d.opened.includes(d.zone))candidates.push({...w.chest,type:'chest',title:d.zone===3?'DESPERTAR ESPADA':'ABRIR'});
  if(d.zone===3&&!d.royalTrialWon)candidates.push({...throneGate,type:'throne',title:'ENTRAR AL CASTILLO'});
  for(const [i,o] of discoveries[d.zone].entries())if(!d.found.includes(d.zone*2+i))candidates.push({...o,id:d.zone*2+i,type:'find',title:'EXAMINAR'});
+ return nearest(candidates,h);
+}
+function nearest(candidates,h){
  return candidates.map(o=>({...o,distance:Math.hypot(h.x-o.x,h.y-o.y)})).filter(o=>o.distance<35).sort((a,b)=>a.distance-b.distance)[0];
 }

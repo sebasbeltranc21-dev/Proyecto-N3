@@ -3,6 +3,8 @@ import {rect,oval,rng,label,sign} from './art.js';
 import {material,stamp,tile} from './atlas.js';
 import {cameraPosition} from './speech.js';
 import {drawResident} from './actors.js';
+import {questPoints,millShortcutY,offersQuest} from './quests.js';
+import {questObject,questRoom,millWheel} from './quest-art.js';
 import {drawVillageStructure} from './structures.js';
 
 const terrainCache=new Map();
@@ -168,6 +170,16 @@ export function drawArena(g,z,t){
 export function drawWorld(g,game,drawHero,drawFoe,speech,cameraOverride=null,showActors=true){
  const {hero:h,data:d,time:t}=game,z=d.zone,w=worlds[z];
  const request=cameraOverride?null:interaction(game);
+ if(d.sideRoom&&!cameraOverride){
+  questRoom(g,d.sideRoom,t);
+  const things=[...questPoints(game),{...h,type:'hero'}].sort((a,b)=>a.y-b.y);
+  for(const thing of things){
+   if(thing.type==='hero')drawHero();
+   else questObject(g,thing,t);
+  }
+  if(request)label(g,'J · '+request.title,h.x,h.y-54,'#fff0ba',9);
+  return;
+ }
  if(d.inside&&!cameraOverride){
   rect(g,'#171c26',0,0,640,336);tile(g,'rooms',z,111,23,418,266);
   drawResident(g,{x:335,y:151,style:z*3},t,speech&&h,true);drawHero();
@@ -180,9 +192,11 @@ export function drawWorld(g,game,drawHero,drawFoe,speech,cameraOverride=null,sho
   const y=Math.floor((i*39+t*7)%WORLD.height);
   if(Math.abs(y-314)>27&&Math.abs(y-footbridges[z])>15)rect(g,'#c8ebd499',riverX(y)+Math.sin(i*9+t*.8)*18,y,4,1);
  }
+ if(z===0&&d.quests?.mill.done)bridge(g,riverX(millShortcutY),millShortcutY,13);
  const entries=[...w.houses,...w.props,...w.people.map((n,i)=>({...townsperson(n,t,i),walkIndex:i})),{...w.chest,type:'chest'}];
  discoveries[z].forEach((a,i)=>{if(!d.found.includes(z*2+i))entries.push({...a,type:'relic'});});
  if(showActors){
+  if(!cameraOverride)entries.push(...questPoints(game).filter(o=>o.kind!=='firefly'||t>=(game.scaredUntil??0)));
   entries.push({...h,type:'hero'});
   if(z!==3&&!d.cleared.includes(z))entries.push({...game.patrol,type:'guardian'});
   if(!d.scouts.includes(z))entries.push({...game.scout,type:'scout'});
@@ -192,8 +206,12 @@ export function drawWorld(g,game,drawHero,drawFoe,speech,cameraOverride=null,sho
   if(o.x<cx-120||o.x>cx+760||o.y<cy-20||o.y>cy+470)continue;
   switch(o.type){
    case 'hero':drawHero();break;
+   case 'quest':questObject(g,o,t);break;
    case 'guardian':case 'scout':drawFoe(o,o.type==='scout');break;
-   case 'npc':drawResident(g,o,t,speech?.name===o.name?h:null);break;
+   case 'npc':
+    drawResident(g,o,t,speech?.name===o.name?h:null);
+    if(!cameraOverride&&offersQuest(d,o.name))label(g,'!',o.x,o.y-42,'#9cf0d0',10);
+    break;
    case 'chest':
     if(z===3&&!d.opened.includes(z)){
      const pulse=Math.round(Math.sin(t*3.5)*2);
@@ -207,7 +225,11 @@ export function drawWorld(g,game,drawHero,drawFoe,speech,cameraOverride=null,sho
     }
     break;
    case 'relic':stamp(g,'props',[4,5,11,9][z],o.x,o.y,20);label(g,'✦',o.x+8,o.y-17+Math.sin(t*3)*2,'#ffdc78',9);break;
-   default:if(w.houses.includes(o))drawPlace(g,o,z,t);else drawProp(g,o);
+   default:
+    if(w.houses.includes(o)){
+     drawPlace(g,o,z,t);
+     if(o.type==='mill')millWheel(g,o.x+26,o.y-10,t,d.quests?.mill.done);
+    }else drawProp(g,o);
   }
  }
  if(!cameraOverride&&z===3&&!d.royalTrialWon){
@@ -224,7 +246,7 @@ export function drawWorld(g,game,drawHero,drawFoe,speech,cameraOverride=null,sho
  }
 }
 export function drawMinimap(g,game){
- const d=game.data,z=d.zone;if(d.inside)return;
+ const d=game.data,z=d.zone;if(d.inside||d.sideRoom)return;
  const x=562,y=295,w=68,h=32;
  // 16-bit brass & ink pixel frame with 4 corner rivets
  rect(g,'#0b141a',x-4,y-4,w+8,h+8);
@@ -239,6 +261,8 @@ export function drawMinimap(g,game){
  if(!d.opened.includes(z))dot(game.chest,'#ffbf4d');
  if(z===3&&!d.royalTrialWon)dot(throneGate,'#ef6f65');
  else if(!d.cleared.includes(z))dot(game.patrol,'#ef6f65');
+ for(const point of questPoints(game))dot(point,'#9ee8bd');
+ for(const resident of worlds[z].people)if(offersQuest(d,resident.name))dot(resident,'#9ee8bd');
  const blink=Math.floor(game.time*4)%2===0;
  dot(game.hero,blink?'#ffffff':'#ffe899');
 }

@@ -2,6 +2,7 @@ import {EchoMemory,sector,directions,habit} from './learning.js';
 import {WORLD,worlds,canWalk,safePosition,interaction,roomNames,throneGate} from './world.js';
 import {health,moves,chooseMove,release,stepHazards,strike,royalPhases,royalHealth} from './arsenal.js';
 import {BattlePlus,diamondSword} from './battle-plus.js';
+import {questState,visitQuestGiver,interactQuest,trackFirefly,guardRounds} from './quests.js';
 export const weapons=[
  {name:'Espada de Viajero',short:'Viajero',damage:15,reach:56,delay:.39,cost:8},
  {name:'Espada de Caballero',short:'Caballero',damage:22,reach:61,delay:.46,cost:10},
@@ -15,7 +16,7 @@ export const items=['Fruta','Escudo','Aturdidora','Elixir','Humo'];
 export const exits=[[2,1],[0,3],[3,0],[1,2]];
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-function fresh(){return {mapRevision:2,inside:false,scouts:[],services:[],found:[],seenCinematics:[],zone:0,x:111,y:312,hp:100,weapon:0,item:0,unlocked:[0],bag:[4,1,1,1,1],cleared:[],opened:[],won:false,royalTrialWon:false,battlePlusWon:false};}
+function fresh(){return {mapRevision:2,inside:false,sideRoom:null,scouts:[],services:[],found:[],seenCinematics:[],zone:0,x:111,y:312,hp:100,weapon:0,item:0,unlocked:[0],bag:[4,1,1,1,1],cleared:[],opened:[],won:false,royalTrialWon:false,battlePlusWon:false};}
 export class Adventure {
  constructor(save,onEvent=()=>{}){
    this.data=Object.assign(fresh(),save?.data||{});this.memory=new EchoMemory(save?.memory);this.emit=onEvent;
@@ -26,6 +27,8 @@ export class Adventure {
      d.x=p.x;d.y=p.y;d.inside=false;
    }
    d.found??=[];
+   d.quests=questState(d.quests??{});
+   this.sideTrial=null;
    d.seenCinematics??=[];
    this.cinematicHandler=null;this.battlePlus=null;
    this.hazards=[];this.encounterType='guardian';
@@ -39,12 +42,13 @@ export class Adventure {
    const w=worlds[this.data.zone];this.patrol={...w.guardian};this.scout={...w.scout};this.patrolTime=0;
  }
  get maxHp(){return 100+this.data.cleared.filter(i=>i<3).length*15;}
- get hp(){return this.battlePlus?.hp??this.data.hp;}
+ get hp(){return this.battlePlus?.hp??this.sideTrial?.hp??this.data.hp;}
  get weapon(){return this.battlePlus?diamondIndex:this.data.weapon;}
  get canPlayBattlePlus(){return this.data.royalTrialWon;}
  get chest(){return worlds[this.data.zone].chest;}
  interact(a){
    const d=this.data,w=worlds[d.zone],door=w.houses[0];
+   if(a.type==='quest'){interactQuest(this,a);return;}
    if(a.type==='chest'){this.openChest();return;}
    if(a.type==='throne'){
      if(!d.unlocked.includes(4)){
@@ -74,7 +78,7 @@ export class Adventure {
        if(x!==undefined){h.x=x;d.x=x;}
      }
      this.face=h.x<a.x?1:-1;
-     this.emit('dialog',{name:a.name,line:a.line});return;
+     this.emit('dialog',{name:a.name,line:visitQuestGiver(this,a.name)??a.line});return;
    }
    if(a.type==='service'){
      const used=d.services.includes(d.zone);const lines=[
@@ -93,6 +97,7 @@ export class Adventure {
      version:1,
      data:{
        ...this.data,
+       quests:questState(this.data.quests),
        bag:[...this.data.bag],
        unlocked:[...this.data.unlocked],
        cleared:[...this.data.cleared],
@@ -128,7 +133,11 @@ export class Adventure {
    if(key==='weapon'){this.cycleWeapon();return;}if(key==='select'){this.cycleItem();return;}
    const h=this.hero,d=this.data,w=weapons[d.weapon];
    if(h.lock>0||h.heal>0)return;
-   if(key==='item'){this.useItem();return;}
+   if(key==='item'){
+     if(this.sideTrial)this.notice('Este duelo no usa objetos de la mochila');
+     else this.useItem();
+     return;
+   }
    if(key==='roll'){this.roll();return;}
    if(key!=='attack')return;
    if(this.mode==='map'){const a=interaction(this);if(a){this.interact(a);return;}}
@@ -155,7 +164,8 @@ export class Adventure {
  }
  learn(action){
    if(this.mode!=='arena')return;
-   const range=dist(this.hero,this.enemy),hp=100*this.data.hp/this.maxHp;
+   const range=dist(this.hero,this.enemy),hp=100*this.hp/this.maxHp;
+   if(this.sideTrial){this.foeMemory.observe(action,range,hp);return;}
    this.memory.observe(action,range,hp);
    const cues=[['roll','atk'],['roll','heal'],['atk','heal'],['roll','atk']];
    const kind=action.split(':')[0];
@@ -222,7 +232,49 @@ export class Adventure {
    this.emit('arena');
    this.notice(this.enemy.phase?'Fase 1 / 3 · '+royalPhases[0].name:'¡Encuentro! J ataca · Espacio rueda');
  }
+ startSideTrial(kind){
+   this.sideTrial={kind,round:0,hp:this.maxHp,elapsed:0,energy:this.energy,memory:new EchoMemory(),steps:new EchoMemory()};
+   this.startTrialRound();
+ }
+ startTrialRound(){
+   const t=this.sideTrial,trial=t.kind==='guard'?guardRounds[t.round]:{name:'Custodio del Claro',hp:125,moves:['hook','bloom','fan']};
+   this.mode='arena';this.hazards=[];this.energy=100;
+   this.spawnHero();
+   Object.assign(this.hero,{x:224,y:212,dx:1});
+   this.face=1;
+   this.foeMemory=t.memory;
+   this.stepSample={x:this.hero.x,y:this.hero.y,time:0};
+   this.enemy={x:412,y:212,hp:trial.hp,max:trial.hp,scout:false,trialMoves:trial.moves,
+     phaseDelay:1,sequence:0,release:0,move:null,cool:.42,wind:0,guard:'',stun:0,recovery:0,
+     hurt:0,read:t.round===2?'Leyendo tus esquivas':'En guardia',face:-1,walk:false};
+   this.emit('arena');
+   this.notice(t.kind==='guard'?'Duelo '+(t.round+1)+' / 3 · '+trial.name:trial.name);
+ }
+ finishSideTrial(won){
+   const t=this.sideTrial,d=this.data;
+   if(won&&t.kind==='guard'&&t.round<guardRounds.length-1){
+     t.round++;
+     this.startTrialRound();
+     return;
+   }
+   this.enemy=null;this.hazards=[];this.sideTrial=null;this.mode='map';
+   this.energy=t.energy;this.spawnHero();this.grace=1;
+   if(!won){this.notice('Puedes volver a intentarlo. Conservas tu salud y tu mochila');return;}
+   if(t.kind==='forest'){
+     d.quests.forest.cleared=true;
+     this.notice('Custodio vencido · El cofre ya se puede abrir');
+   }else{
+     const record=d.quests.guard;
+     const best=record.best===null||t.elapsed<record.best;
+     record.best=best?t.elapsed:record.best;
+     const firstWin=!record.done;
+     if(firstWin){d.bag[1]++;d.bag[2]++;record.done=true;}
+     this.notice((best?'Nuevo récord · ':'Desafío completado · ')+t.elapsed.toFixed(1)+' s'+(firstWin?' · Escudo y aturdidora':'') );
+   }
+   this.emit('sound','loot');this.emit('save');
+ }
  winBattle(){
+   if(this.sideTrial){this.finishSideTrial(true);return;}
    const d=this.data;const scout=this.enemy.scout;this.enemy=null;this.hazards=[];
    if(scout){d.scouts.push(d.zone);d.bag[0]++;d.bag[1]++;this.spawnHero();this.mode='map';this.grace=1;this.notice('Patrulla vencida · fruta y escudo');this.emit('sound','loot');this.emit('save');return;}
    if(!d.cleared.includes(d.zone))d.cleared.push(d.zone);d.hp=Math.min(this.maxHp,d.hp+47);this.energy=100;d.bag[0]++;d.bag[2]++;
@@ -265,13 +317,19 @@ export class Adventure {
    if(arena){
      h.x=clamp(h.x+vx,23,617);h.y=clamp(h.y+vy,133,293);
      if(this.battlePlus)this.battlePlus.tick(dt);
-     else this.fight(dt);
+     else{
+       if(this.sideTrial)this.sideTrial.elapsed+=dt;
+       this.fight(dt);
+     }
      return;
    }
-   if(d.inside){h.x=clamp(h.x+vx,130,510);h.y=clamp(h.y+vy,157,274);d.x=h.x;d.y=h.y;return;}
+   if(d.inside||d.sideRoom){
+     h.x=clamp(h.x+vx,130,510);h.y=clamp(h.y+vy,152,d.sideRoom?291:274);
+     d.x=h.x;d.y=h.y;return;
+   }
    const nx=clamp(h.x+vx,8,WORLD.width-8),ny=clamp(h.y+vy,62,WORLD.height-25);
-   if(canWalk(d.zone,nx,h.y))h.x=nx;
-   if(canWalk(d.zone,h.x,ny))h.y=ny;
+   if(canWalk(d.zone,nx,h.y,d.quests.mill.done))h.x=nx;
+   if(canWalk(d.zone,h.x,ny,d.quests.mill.done))h.y=ny;
    if((h.x<14||h.x>WORLD.width-14)&&Math.abs(h.y-WORLD.road)<35){
      const right=h.x>WORLD.width/2,next=exits[d.zone][right?1:0];
      if(next===3&&d.cleared.filter(k=>k<3).length<3){h.x=right?WORLD.width-38:38;this.notice('Faltan sellos · vence a los tres guardianes');}
@@ -279,6 +337,7 @@ export class Adventure {
      return;
    }
    d.x=h.x;d.y=h.y;this.patrolTime+=dt;
+   trackFirefly(this);
    const w=worlds[d.zone];
    for(const [p,home,done,type] of [[this.patrol,w.guardian,d.cleared,'guardian'],[this.scout,w.scout,d.scouts,'scout']]){
      if(done.includes(d.zone)||(type==='guardian'&&d.zone===3))continue;
@@ -292,7 +351,8 @@ export class Adventure {
  approach(a,b,step){const dx=b.x-a.x,dy=b.y-a.y,n=Math.hypot(dx,dy);if(n>.01){const k=Math.min(1,step/n);a.x+=dx*k;a.y+=dy*k;}}
  fight(dt){
    const h=this.hero,e=this.enemy,royal=royalPhases[e.phase-1];
-   if(royal)this.observeRoyalSteps(dt);
+   const tracking=royal?this.royalSteps:this.sideTrial?.kind==='guard'?this.sideTrial.steps:null;
+   if(tracking)this.observeRoyalSteps(dt,tracking);
    if(e.phaseDelay>0){e.phaseDelay=Math.max(0,e.phaseDelay-dt);return;}
    stepHazards(this,dt);if(this.mode!=='arena')return;
    e.hurt=Math.max(0,e.hurt-dt);e.release=Math.max(0,e.release-dt);e.walk=false;
@@ -317,17 +377,17 @@ export class Adventure {
      return;
    }
    e.face=h.x>=e.x?1:-1;e.cool-=dt;
-   const range=dist(h,e),hp=100*this.data.hp/this.maxHp;
+   const range=dist(h,e),hp=100*this.hp/this.maxHp;
    let guess=this.foeMemory.predict(range,hp);
    if(!guess.action&&royal)guess=this.memory.predict(range,hp);
-   const token=!h.smoke&&guess.confidence>=(royal?.confidence??.60)?guess.action:'';
+   const token=!h.smoke&&(!this.sideTrial||this.sideTrial.round===2)&&guess.confidence>=(royal?.confidence??.60)?guess.action:'';
    const next=chooseMove(e,this.data.zone,token),attack=moves[next];
    if(range>Math.min(88,attack.range-12)){this.approach(e,h,(royal?.speed??68)*dt);e.walk=true;}
    if(e.cool>0||range>attack.range)return;
    e.move=next;
    e.guard=token.startsWith('atk:')?token:'';
    let tx=h.x,ty=h.y;
-   const route=next==='edict'&&!h.smoke?this.royalSteps.predict(range,hp):null;
+   const route=next==='edict'&&!h.smoke?tracking?.predict(range,hp):null;
    const movement=route?.confidence>=.46?route.action:token;
    if(movement.startsWith('roll:')||movement.startsWith('step:')){
      const [x,y]=directions[movement.slice(5)];
@@ -356,7 +416,8 @@ export class Adventure {
    e.edictRead=null;
    const dx=h.x-read.x,dy=h.y-read.y;
    if(Math.hypot(dx,dy)>=22){
-     this.royalSteps.observe('step:'+sector(dx,dy),dist(h,e),100*this.data.hp/this.maxHp);
+     const memory=this.sideTrial?.steps??this.royalSteps;
+     memory.observe('step:'+sector(dx,dy),dist(h,e),100*this.hp/this.maxHp);
    }
    if(dx*read.dx+dy*read.dy> -22||e.runes.some(rune=>dist(rune,h)<24))return;
    e.exposed=1.45;
@@ -364,15 +425,15 @@ export class Adventure {
    e.guard='';
    e.read='¡Engañado! Guardia baja';
    this.emit('sound','adapt');
-   this.notice('¡Engañaste al Rey! Ataca ahora');
+   this.notice(this.sideTrial?'¡Engañaste a la estatua! Ataca ahora':'¡Engañaste al Rey! Ataca ahora');
  }
- observeRoyalSteps(dt){
+ observeRoyalSteps(dt,memory){
    const sample=this.stepSample,h=this.hero;
    sample.time+=dt;
    if(sample.time<.36)return;
    const dx=h.x-sample.x,dy=h.y-sample.y;
    if(!h.roll&&Math.hypot(dx,dy)>18){
-     this.royalSteps.observe('step:'+sector(dx,dy),dist(h,this.enemy),100*this.data.hp/this.maxHp);
+     memory.observe('step:'+sector(dx,dy),dist(h,this.enemy),100*this.hp/this.maxHp);
    }
    Object.assign(sample,{x:h.x,y:h.y,time:0});
  }

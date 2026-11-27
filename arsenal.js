@@ -31,6 +31,7 @@ export const moves={
   {cycle:['dash','sweep','hook'],counter:['hook','dash','sweep']}
  ];
  export function chooseMove(enemy,z,token=''){
+  if(enemy.trialMoves)return enemy.trialMoves[enemy.sequence%enemy.trialMoves.length];
   const {cycle,counter}=royalPhases[enemy.phase-1]??styles[z*2+(enemy.scout?0:1)];
   const response=counter[token.startsWith('roll:')?0:token==='heal'?1:2];
   if(token && enemy.sequence%3!==2 && enemy.move!==response &&
@@ -43,9 +44,13 @@ const span=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export function strike(game,damage){
  const h=game.hero;
  if(game.mode!=='arena'||h.roll>0||h.shield>0||h.hurt>0)return;
- game.data.hp=Math.max(0,game.data.hp-damage);h.hurt=.48;h.heal=0;
+ const pool=game.sideTrial??game.data;
+ pool.hp=Math.max(0,pool.hp-damage);h.hurt=.48;h.heal=0;
  game.emit('sound','hurt');game.emit('effect',{x:h.x,y:h.y-32,text:'−'+damage});
- if(!game.data.hp){game.mode='lost';game.emit('lost');}
+ if(!pool.hp){
+  if(game.sideTrial)game.finishSideTrial(false);
+  else{game.mode='lost';game.emit('lost');}
+ }
 }
 export function release(game){
  const e=game.enemy,kind=e.move||'dash',d=moves[kind],target=e.target,h=game.hero;
