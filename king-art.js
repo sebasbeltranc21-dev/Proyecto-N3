@@ -1,139 +1,147 @@
 import {oval,poly,rect} from './art.js';
 
-const ink='#191526',steel='#323145',plate='#596078',sheen='#8d9db5';
-const bronze='#a97041',gold='#e1ad65',ivory='#ffe3aa';
-const phases=[
- {light:'#ffd987',mid:'#b8814e',dark:'#74424c',cloak:'#842e4d',fold:'#b44661'},
- {light:'#c1fff0',mid:'#6ec7be',dark:'#376275',cloak:'#55486e',fold:'#806993'},
- {light:'#ffd5f1',mid:'#e28bbd',dark:'#8a4f84',cloak:'#6d2b6d',fold:'#a14a8d'}
+const outline='#2d2234';
+const metal=['#3c374b','#555366','#75758a','#a59e9e'];
+const trim=['#75463f','#b4774c','#e0aa65','#ffe4a8'];
+const colors=[
+ {cloth:['#603349','#94425a','#bf5a60'],light:'#ffdc91',gem:'#c47555'},
+ {cloth:['#2c4b57','#426e74','#6ba79a'],light:'#d9ffdf',gem:'#7bc4b4'},
+ {cloth:['#593449','#7f3b63','#aa537b'],light:'#ffd5e8',gem:'#db87a5'}
 ];
 
-function royalWeapon(g,x,y,angle,kind,p){
+function boot(g,x,y){
+ poly(g,outline,[[x-7,y-18],[x+6,y-18],[x+8,y-6],[x+12,y-4],[x+13,y+2],[x-8,y+2]]);
+ poly(g,metal[1],[[x-5,y-16],[x+4,y-16],[x+6,y-5],[x+11,y-3],[x+11,y],[x-6,y]]);
+ rect(g,metal[2],x-5,y-12,9,3);
+ rect(g,trim[1],x-5,y-7,10,2);
+ rect(g,metal[2],x+4,y-3,6,1);
+ rect(g,metal[3],x-4,y-12,4,1);
+ rect(g,outline,x-3,y-5,2,3);
+}
+
+function mantle(g,drift,p,drop){
+ const [shade,base,light]=p.cloth;
+ poly(g,outline,[[-17,-56],[11,-56],[19,-47],[16,-29],[22+drift,-13],[22+drift,1],[8,-3],[-4,1],[-13+drift,2],[-30+drift,drop-2],[-25,-20],[-24,-41]]);
+ poly(g,shade,[[-16,-54],[10,-54],[17,-46],[14,-29],[20+drift,-12],[20+drift,-1],[7,-5],[-5,-1],[-14+drift,0],[-28+drift,drop-3],[-23,-21],[-22,-40]]);
+ poly(g,base,[[-20,-43],[-13,-52],[-6,-47],[-10,-30],[-15+drift,-4],[-24+drift,drop-6],[-22,-19]]);
+ poly(g,light,[[-19,-43],[-15,-48],[-13,-45],[-16,-25],[-21+drift,-11],[-21+drift,-17]]);
+ poly(g,base,[[9,-38],[13,-30],[19+drift,-10],[18+drift,-6],[13,-13]]);
+ const hem=-26+drift;
+ rect(g,trim[1],hem,drop-7,4,2);
+ rect(g,trim[1],hem+4,drop-6,5,2);
+ rect(g,trim[2],hem+1,drop-7,4,1);
+ rect(g,light,-19+drift,-16,2,6);
+ rect(g,base,16+drift,-12,2,6);
+}
+
+function armor(g,p){
+ poly(g,outline,[[-20,-55],[-10,-60],[12,-59],[25,-52],[26,-43],[18,-38],[12,-34],[16,-22],[4,-17],[-10,-18],[-17,-23],[-15,-37],[-22,-43]]);
+ poly(g,metal[0],[[-18,-54],[-10,-58],[12,-57],[22,-51],[24,-44],[16,-40],[10,-35],[14,-23],[3,-19],[-9,-20],[-15,-24],[-13,-37],[-20,-44]]);
+ poly(g,metal[1],[[-13,-53],[-5,-56],[11,-55],[17,-51],[15,-44],[7,-40],[-6,-42],[-13,-46]]);
+ poly(g,metal[2],[[-11,-51],[-5,-54],[8,-54],[14,-51],[8,-48],[-4,-48],[-9,-46]]);
+ rect(g,metal[3],-8,-51,6,2);
+ rect(g,metal[2],-11,-46,4,2);
+ rect(g,trim[2],-12,-44,2,2);
+ rect(g,metal[2],9,-47,3,2);
+ rect(g,metal[3],12,-45,2,1);
+ poly(g,trim[1],[[-10,-47],[-5,-43],[5,-42],[13,-46],[11,-42],[4,-40],[-6,-41]]);
+ poly(g,outline,[[0,-49],[4,-53],[9,-49],[8,-45],[4,-43],[0,-46]]);
+ poly(g,p.gem,[[1,-49],[4,-51],[7,-49],[7,-46],[4,-44],[1,-46]]);
+ rect(g,p.light,3,-49,3,2);
+ rect(g,trim[1],-12,-34,24,3);
+ rect(g,trim[2],-2,-35,6,4);
+ poly(g,p.cloth[1],[[-5,-30],[7,-30],[9,-21],[2,-16],[-6,-20]]);
+ rect(g,p.cloth[2],-3,-29,3,8);
+ rect(g,trim[2],-2,-24,6,2);
+ for(const [x,y] of [[-12,-28],[-10,-24],[9,-28],[10,-24]])rect(g,metal[2],x,y,4,2);
+}
+
+function head(g,p,y,exposed){
+ const shape=(color,points)=>poly(g,color,points.map(([x,v])=>[x,y+v]));
+ shape(outline,[[-12,-3],[-9,-7],[9,-8],[14,-4],[16,3],[14,10],[9,15],[0,16],[-7,13],[-11,8]]);
+ shape('#514052',[[-10,-1],[-7,-5],[8,-6],[12,-3],[14,4],[12,10],[8,13],[0,14],[-7,11],[-9,7]]);
+ shape('#b97f64',[[-4,-2],[8,-4],[12,0],[12,5],[15,6],[13,9],[9,9],[9,12],[3,14],[-3,11],[-6,7]]);
+ shape('#e5ab78',[[-2,-1],[8,-3],[11,1],[10,5],[13,7],[9,8],[6,11],[0,11],[-3,7]]);
+ shape('#ffe1a0',[[1,0],[9,-2],[10,1],[7,3],[1,3]]);
+ rect(g,outline,7,y+3,3,3);
+ rect(g,exposed?'#fff0bc':p.light,8,y+3,1,1);
+ rect(g,'#744758',6,y+9,5,1);
+ shape(outline,[[-12,0],[-16,-15],[-11,-14],[-6,-8],[-5,-13],[-2,-10],[3,-19],[7,-17],[9,-9],[14,-15],[18,-15],[16,-3],[11,0]]);
+ shape(trim[1],[[-11,-2],[-14,-13],[-11,-12],[-5,-6],[-4,-11],[-1,-7],[4,-17],[6,-16],[9,-6],[15,-13],[16,-13],[14,-4],[10,-2]]);
+ shape(trim[2],[[-12,-12],[-8,-9],[-4,-6],[0,-8],[4,-16],[6,-14],[7,-8],[10,-5],[15,-12],[13,-6],[10,-4],[-9,-4]]);
+ rect(g,trim[3],-9,y-5,7,1);
+ rect(g,trim[3],3,y-15,2,2);
+ rect(g,trim[3],-12,y-11,2,2);
+ rect(g,trim[0],-2,y-4,3,2);
+ rect(g,trim[2],10,y-3,2,2);
+ rect(g,p.gem,4,y-10,4,5);
+ rect(g,p.light,5,y-10,2,2);
+}
+
+function weapon(g,x,y,angle,move,p){
  const c=Math.cos(angle),s=Math.sin(angle);
  const shape=(color,points)=>poly(g,color,points.map(([u,v])=>[
-  Math.round(x+u*c-v*s),Math.round(y+u*s+v*c)
+   Math.round(x+u*c-v*s),Math.round(y+u*s+v*c)
  ]));
- shape(ink,[[-11,-3],[15,-3],[15,3],[-11,3]]);
- shape(gold,[[-9,-1],[9,-1],[9,1],[-9,1]]);
- shape(ivory,[[-11,-3],[-7,-3],[-7,3],[-11,3]]);
- if(kind==='slam'){
-  shape(ink,[[24,-11],[36,-15],[50,-11],[54,-4],[54,7],[48,12],[33,14],[23,9]]);
-  shape(plate,[[26,-9],[36,-13],[48,-9],[51,-4],[50,8],[45,10],[33,12],[25,7]]);
-  shape(gold,[[28,-8],[35,-11],[39,-9],[37,10],[31,10],[29,6]]);
-  shape(p.light,[[41,-7],[49,-5],[48,1],[40,3]]);
-  return;
+ const length=move==='lance'?46:35;
+ shape(outline,[[-8,-2],[17,-2],[17,3],[-8,3]]);
+ shape(trim[1],[[-7,-1],[17,-1],[17,1],[-7,1]]);
+ if(move==='slam'){
+  shape(outline,[[14,-10],[28,-11],[33,-7],[33,7],[29,10],[14,10]]);
+  shape(metal[1],[[16,-9],[27,-9],[31,-6],[31,6],[28,8],[16,8]]);
+  shape(metal[2],[[17,-8],[26,-8],[30,-5],[28,-2],[17,-2]]);
+  shape(trim[2],[[20,-9],[23,-9],[23,8],[20,8]]);
+ }else{
+  shape(outline,[[3,-5],[10,-7],[length-7,-5],[length,0],[length-7,5],[10,6],[3,4]]);
+  shape(metal[2],[[7,-4],[11,-6],[length-8,-4],[length-2,0],[length-8,4],[11,4],[7,3]]);
+  shape(p.light,[[8,-3],[12,-5],[length-8,-3],[length-2,0],[13,-1],[8,1]]);
+  shape(trim[2],[[1,-5],[4,-6],[6,0],[4,5],[1,5],[2,0]]);
  }
- const point=kind==='lance'?62:48;
- shape(ink,[[4,-6],[14,-9],[32,-7],[point,0],[34,8],[14,10],[4,7]]);
- shape(p.dark,[[6,-5],[15,-7],[32,-5],[point-3,0],[33,6],[15,8],[6,5]]);
- shape(p.mid,[[8,-4],[16,-6],[31,-4],[point-3,0],[31,2],[16,3],[8,3]]);
- shape(p.light,[[15,-5],[31,-4],[point-4,0],[30,-1],[16,-1],[12,1]]);
- shape(ink,[[0,-9],[5,-10],[9,-5],[9,6],[5,9],[0,7],[3,3],[3,-4]]);
- shape(gold,[[2,-8],[5,-8],[7,-4],[7,6],[4,7],[5,3],[5,-4]]);
- shape(ivory,[[12,4],[20,4],[17,6],[12,6]]);
-}
-
-function mantle(g,drift,p){
- poly(g,ink,[[-21,-69],[11,-72],[23,-63],[28,-40],[33+drift,-14],[36+drift,2],[12,-3],[-1,-8],[-15,0],[-34+drift,2],[-29+drift,-21],[-27,-48]]);
- poly(g,p.dark,[[-19,-67],[10,-69],[21,-60],[25,-37],[31+drift,-13],[32+drift,-1],[12,-6],[-2,-11],[-19,-3],[-31+drift,0],[-26+drift,-22],[-25,-48]]);
- poly(g,p.cloak,[[-14,-65],[4,-68],[13,-58],[12,-35],[26+drift,-4],[9,-9],[-2,-18],[-16,-6],[-26+drift,-3],[-20,-34]]);
- poly(g,p.fold,[[-18,-59],[-13,-60],[-15,-34],[-22+drift,-8],[-25+drift,-7],[-20,-31]]);
- poly(g,p.fold,[[12,-50],[16,-47],[22,-26],[28+drift,-10],[25+drift,-9],[18,-29]]);
-}
-
-function sabaton(g,x,y){
- poly(g,ink,[[x-8,y-23],[x+6,y-23],[x+8,y-7],[x+16,y-3],[x+16,y+2],[x-11,y+2],[x-11,y-3],[x-7,y-9]]);
- poly(g,steel,[[x-6,y-22],[x+4,y-22],[x+6,y-6],[x+13,y-2],[x+13,y],[x-9,y],[x-6,y-5]]);
- poly(g,plate,[[x-5,y-21],[x+4,y-21],[x+3,y-10],[x-5,y-8]]);
- rect(g,gold,x-5,y-10,8,2);
- rect(g,sheen,x+4,y-4,5,2);
-}
-
-function cuirass(g,p,glint){
- poly(g,ink,[[-22,-69],[-11,-75],[16,-75],[29,-67],[28,-50],[18,-44],[15,-35],[21,-21],[15,-15],[5,-19],[-2,-13],[-16,-17],[-20,-26],[-16,-45],[-23,-49]]);
- poly(g,steel,[[-20,-68],[-10,-73],[14,-73],[25,-66],[23,-52],[16,-47],[13,-35],[18,-23],[15,-18],[5,-22],[-2,-16],[-15,-20],[-18,-27],[-13,-45],[-20,-51]]);
- poly(g,plate,[[-18,-67],[-9,-71],[12,-71],[22,-65],[19,-55],[11,-49],[-2,-50],[-13,-54]]);
- poly(g,sheen,[[-16,-67],[-8,-70],[11,-70],[20,-65],[12,-62],[1,-65],[-9,-63]]);
- poly(g,bronze,[[-14,-59],[-1,-56],[10,-57],[19,-63],[17,-57],[8,-52],[-3,-51],[-12,-54]]);
- poly(g,ink,[[-1,-66],[7,-71],[15,-65],[12,-58],[6,-54],[-1,-59]]);
- poly(g,p.dark,[[1,-65],[7,-68],[13,-64],[11,-59],[6,-56],[1,-60]]);
- poly(g,glint,[[3,-65],[7,-67],[11,-64],[6,-60]]);
- rect(g,bronze,-12,-39,25,4);
- rect(g,gold,-10,-39,20,1);
- rect(g,ink,-2,-39,7,6);
- rect(g,p.mid,-1,-38,5,4);
- for(const [x,y,w] of [[-15,-32,9],[-14,-27,9],[7,-31,8],[8,-26,8]]){
-  rect(g,plate,x,y,w,3);
-  rect(g,bronze,x+1,y+2,w-2,1);
- }
- poly(g,p.cloak,[[-5,-34],[5,-34],[7,-21],[1,-14],[-6,-18]]);
- rect(g,gold,-2,-31,4,2);
- rect(g,p.light,-1,-29,2,5);
-}
-
-function pauldron(g,x,y,p,front){
- poly(g,ink,[[x-14,y-5],[x-12,y-12],[x-6,y-15],[x-1,y-21],[x+5,y-14],[x+12,y-12],[x+16,y-5],[x+11,y+5],[x-3,y+7],[x-11,y+3]]);
- poly(g,steel,[[x-12,y-5],[x-10,y-11],[x-4,y-13],[x-1,y-17],[x+4,y-12],[x+10,y-11],[x+13,y-5],[x+9,y+3],[x-2,y+5],[x-9,y+1]]);
- poly(g,front?sheen:plate,[[x-10,y-7],[x-7,y-11],[x+2,y-13],[x+9,y-10],[x+12,y-5],[x+3,y-7],[x-4,y-4]]);
- poly(g,gold,[[x-10,y-5],[x-5,y-2],[x+3,y-1],[x+12,y-5],[x+10,y-1],[x+3,y+2],[x-7,y+1]]);
- rect(g,p.light,x+2,y-10,3,2);
-}
-
-function crown(g,p,y,flash){
- poly(g,ink,[[-12,y+1],[-15,y-8],[-13,y-16],[-8,y-15],[-7,y-20],[0,y-16],[6,y-22],[11,y-16],[18,y-20],[19,y-10],[22,y-6],[20,y+7],[13,y+15],[-4,y+15],[-12,y+8]]);
- poly(g,plate,[[-10,y+1],[-12,y-7],[-7,y-11],[15,y-11],[20,y-5],[18,y+7],[12,y+13],[-3,y+13],[-10,y+7]]);
- poly(g,ink,[[-9,y-1],[-3,y-5],[17,y-6],[19,y-1],[16,y+5],[1,y+7],[-6,y+4]]);
- poly(g,sheen,[[-7,y+7],[-3,y+8],[1,y+7],[10,y+8],[15,y+5],[13,y+10],[3,y+12],[-4,y+11]]);
- rect(g,flash?ivory:p.light,8,y-2,8,2);
- rect(g,p.mid,-3,y,5,1);
- const peak=p===phases[2]?27:23;
- poly(g,ink,[[-14,y-7],[-19,y-23],[-12,y-20],[-7,y-14],[-6,y-23],[-1,y-18],[6,y-peak],[12,y-17],[16,y-22],[16,y-14],[23,y-21],[21,y-9],[16,y-5],[-8,y-5]]);
- poly(g,bronze,[[-13,y-8],[-17,y-21],[-12,y-18],[-6,y-12],[-5,y-20],[-1,y-16],[6,y-peak+3],[12,y-15],[15,y-19],[15,y-12],[21,y-18],[19,y-10],[15,y-7],[-8,y-7]]);
- poly(g,gold,[[-16,y-19],[-11,y-16],[-6,y-10],[-2,y-12],[6,y-peak+4],[10,y-15],[7,y-10],[14,y-9],[19,y-15],[17,y-9],[14,y-8],[-8,y-8]]);
- poly(g,p.light,[[3,y-13],[6,y-18],[9,y-13],[6,y-9]]);
- rect(g,ivory,5,y-14,2,3);
 }
 
 export function drawMimicKing(g,king,time){
- const phase=king.phase??1,p=phases[phase-1];
- const moving=king.walk||king.lunge;
- const stride=moving?Math.round(Math.sin(time*17)*5):0;
+ const phase=king.phase??1,p=colors[phase-1];
+ const exposed=king.exposed>0;
+ const walking=king.walk||king.lunge;
+ const stride=walking?Math.round(Math.sin(time*17)*4):0;
  const wind=king.wind>0?1-king.wind/king.windDuration:0;
  const swing=king.release>0?1-king.release/.25:0;
- const shifting=king.phaseDelay>0;
- const hurt=king.hurt>0;
- const bob=Math.round(Math.cos(time*5))+Math.round(Math.abs(stride)*.32);
- const lean=Math.round((king.lunge?8:0)+Math.sin(Math.PI*swing)*8-wind*5-(hurt?3:0));
- const drift=Math.round(Math.sin(time*6)*3)-Math.abs(stride)-Math.abs(lean);
- const weaponAngle=king.wind>0 ? -.82-wind*(king.move==='slam'?1.12:.65) :
-   king.release>0 ? -1.38+swing*2.14 : king.lunge ? .05 : -.92;
- const handX=23+Math.round((king.lunge?6:0)+swing*10-wind*4);
- const handY=-40-Math.round(wind*13)+Math.round(swing*10);
- oval(g,'#130e2188',king.x,king.y,33,8);
+ const bob=exposed?5:Math.round(Math.cos(time*5)+Math.abs(stride)*.35);
+ const lean=exposed?-3:Math.round((king.lunge?6:0)+Math.sin(Math.PI*swing)*6-wind*4-(king.hurt>0?3:0));
+ const drift=Math.round(Math.sin(time*5)*3)-Math.abs(stride);
+ const handX=19+Math.round(swing*10-wind*4),handY=-35+Math.round(swing*7-wind*10)+(exposed?11:0);
+ const angle=exposed?.63:king.wind>0?-.74-wind*(king.move==='slam'?1.25:.7):
+   king.release>0?-1.30+swing*2.1:king.lunge?.04:-.74;
+ oval(g,'#23203970',king.x,king.y,23,5);
  g.save();
  g.translate(Math.round(king.x),Math.round(king.y));
  g.scale(king.face??-1,1);
- if(phase>1||shifting){
-  for(let i=0;i<(phase===3?7:4);i++){
-   const angle=time*(shifting?4.8:1.32)+i*1.9;
-   const x=Math.round(Math.cos(angle)*(36+i%2*6)),y=Math.round(-54+Math.sin(angle*1.6)*25);
-   poly(g,ink,[[x-4,y],[x,y-8],[x+5,y-2],[x+3,y+5],[x-1,y+9]]);
-   poly(g,p.mid,[[x-2,y],[x,y-6],[x+3,y-2],[x+1,y+5]]);
-   rect(g,p.light,x,y-3,1,4);
+ mantle(g,drift,p,exposed?3:0);
+ boot(g,-10-stride,-3-Math.max(0,stride));
+ boot(g,8+stride,Math.min(0,stride));
+ g.translate(lean,bob);
+ poly(g,outline,[[-19,-57],[-12,-60],[-7,-55],[-9,-45],[-14,-42],[-15,-36],[-21,-35],[-25,-42],[-24,-48]]);
+ poly(g,metal[1],[[-18,-55],[-12,-58],[-9,-54],[-11,-46],[-16,-43],[-16,-38],[-20,-37],[-23,-42],[-22,-49]]);
+ rect(g,metal[2],-21,-50,6,2);
+ rect(g,trim[1],-20,-42,4,2);
+ armor(g,p);
+ const shoulderY=exposed?-44:-49;
+ poly(g,outline,[[12,shoulderY-8],[21,shoulderY-10],[27,shoulderY-5],[28,shoulderY+1],[24,shoulderY+5],[handX+5,handY+4],[handX-4,handY+3],[15,shoulderY+5],[10,shoulderY]]);
+ poly(g,metal[1],[[13,shoulderY-7],[21,shoulderY-8],[25,shoulderY-4],[26,shoulderY+1],[22,shoulderY+4],[handX+3,handY+2],[handX-2,handY+1],[15,shoulderY+2]]);
+ poly(g,metal[2],[[15,shoulderY-6],[21,shoulderY-7],[24,shoulderY-4],[19,shoulderY-3],[14,shoulderY-1]]);
+ rect(g,trim[2],19,shoulderY,6,2);
+ weapon(g,handX,handY,angle,king.move,p);
+ rect(g,outline,handX-4,handY-4,7,7);
+ rect(g,trim[1],handX-3,handY-3,5,5);
+ rect(g,trim[2],handX-2,handY-3,4,2);
+ head(g,p,-59+(exposed?3:0),exposed);
+ if(phase>1||exposed){
+  const count=exposed?3:phase;
+  for(let i=0;i<count;i++){
+   const a=time*3+i*2.1,px=Math.round(Math.cos(a)*(exposed?19:32)),py=Math.round((exposed?-76:-48)+Math.sin(a)*12);
+   rect(g,p.gem,px-1,py-1,4,4);
+   rect(g,exposed?trim[3]:p.light,px,py,2,2);
   }
  }
- mantle(g,drift,p);
- sabaton(g,-13-stride,-Math.max(0,stride));
- sabaton(g,9+stride,Math.min(0,stride));
- g.translate(lean,bob);
- pauldron(g,-18,-59,p,false);
- cuirass(g,p,hurt||shifting?ivory:p.light);
- poly(g,ink,[[10,-64],[20,-62],[26,-50],[handX+8,handY-6],[handX+8,handY+4],[handX-2,handY+8],[14,-45],[8,-54]]);
- poly(g,plate,[[12,-62],[18,-59],[22,-48],[handX+6,handY-4],[handX+6,handY+3],[handX,handY+5],[16,-46],[10,-54]]);
- pauldron(g,19,-61,p,true);
- royalWeapon(g,handX+2,handY,weaponAngle,king.move,p);
- rect(g,bronze,handX-2,handY-4,8,8);
- rect(g,gold,handX-1,handY-4,6,3);
- crown(g,p,-78,hurt||shifting);
  g.restore();
 }

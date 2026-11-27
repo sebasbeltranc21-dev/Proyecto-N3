@@ -140,8 +140,15 @@ export class Adventure {
    this.face=e.x<h.x?-1:1;
    const guarded=e.guard===token&&e.stun<=0&&e.recovery<=0&&h.smoke<=0;
    const healthFloor=e.phase&&e.phase<3?e.max*(3-e.phase)/3:0;
-   const damage=Math.min(e.hp-healthFloor,Math.round(w.damage*(h.haste>0?1.3:1)*(guarded?.32:1)));
-   e.hp-=damage;e.hurt=.14;this.emit('effect',{x:e.x,y:e.y-33,text:guarded?'BLOQUEO · '+damage:'−'+damage});
+   const counter=e.exposed>0;
+   const hitModifier=counter?1.35:guarded?.32:1;
+   const damage=Math.min(e.hp-healthFloor,Math.round(w.damage*(h.haste>0?1.3:1)*hitModifier));
+   if(counter){
+     e.exposed=0;
+     e.read='Recuperando la guardia';
+   }
+   e.hp-=damage;e.hurt=.14;
+   this.emit('effect',{x:e.x,y:e.y-33,text:counter?'CONTRAATAQUE · '+damage:guarded?'BLOQUEO · '+damage:'−'+damage});
    this.emit('sound','hit');
    if(e.hp<=0)this.winBattle();
    else if(healthFloor&&e.hp===healthFloor)this.advanceRoyalPhase();
@@ -157,7 +164,7 @@ export class Adventure {
  advanceRoyalPhase(){
    const e=this.enemy;
    e.phase++;
-   Object.assign(e,{phaseDelay:1.35,wind:0,release:0,stun:0,lunge:null,recovery:0,cool:0,sequence:0,move:null,guard:'',read:'Adaptando su estrategia'});
+   Object.assign(e,{phaseDelay:1.35,wind:0,release:0,exposed:0,edictRead:null,stun:0,lunge:null,recovery:0,cool:0,sequence:0,move:null,guard:'',read:'Adaptando su estrategia'});
    this.hazards=[];
    this.emit('sound','adapt');
    this.emit('royal_phase',e.phase);
@@ -181,9 +188,9 @@ export class Adventure {
    d.bag[i]--;h.lock=.25;
    if(i===0){this.learn('heal');h.heal=.65;this.emit('sound','heal');this.notice('Preparando fruta…');return;}
    if(i===1)h.shield=4;
-   if(i===2){this.enemy.stun=2.1;this.enemy.wind=0;this.enemy.cool=1;}
+   if(i===2){this.enemy.stun=2.1;this.enemy.wind=0;this.enemy.edictRead=null;this.enemy.cool=1;}
    if(i===3)h.haste=5;
-   if(i===4){h.smoke=3;if(this.enemy){this.enemy.guard='';this.enemy.wind=0;this.enemy.cool=.7;this.enemy.read='Predicción velada';}}
+   if(i===4){h.smoke=3;if(this.enemy){this.enemy.guard='';this.enemy.wind=0;this.enemy.edictRead=null;this.enemy.cool=.7;this.enemy.read='Predicción velada';}}
    this.emit('sound','item');this.notice(['','Escudo · 4 s','Enemigo aturdido','Elixir · 5 s','Humo · 3 s'][i]);
  }
  _enterTransition(type='guardian'){
@@ -289,6 +296,10 @@ export class Adventure {
    if(e.phaseDelay>0){e.phaseDelay=Math.max(0,e.phaseDelay-dt);return;}
    stepHazards(this,dt);if(this.mode!=='arena')return;
    e.hurt=Math.max(0,e.hurt-dt);e.release=Math.max(0,e.release-dt);e.walk=false;
+   if(e.exposed>0){
+     e.exposed=Math.max(0,e.exposed-dt);
+     if(!e.exposed)e.read='Guardia recuperada';
+   }
    if(e.stun>0){e.stun-=dt;e.lunge=null;return;}
    if(e.lunge){
      const step=Math.min(550*dt,e.lunge.distance);this.approach(e,e.lunge.target,step);e.lunge.distance-=step;
@@ -297,7 +308,14 @@ export class Adventure {
      return;
    }
    if(e.recovery>0){e.recovery-=dt;return;}
-   if(e.wind>0){e.wind-=dt;if(e.wind<=0)release(this);return;}
+   if(e.wind>0){
+     e.wind-=dt;
+     if(e.wind<=0){
+       release(this);
+       if(e.edictRead)this.resolveEdict();
+     }
+     return;
+   }
    e.face=h.x>=e.x?1:-1;e.cool-=dt;
    const range=dist(h,e),hp=100*this.data.hp/this.maxHp;
    let guess=this.foeMemory.predict(range,hp);
@@ -321,11 +339,32 @@ export class Adventure {
      const x=clamp(tx,66,574),y=clamp(ty,174,252);
      const vertical=Math.abs(tx-h.x)>=Math.abs(ty-h.y);
      e.runes=[0,-40,40].map(offset=>({x:x+(vertical?0:offset),y:y+(vertical?offset:0)}));
+     const direction=directions[movement.slice(5)];
+     if(direction&&(movement.startsWith('roll:')||movement.startsWith('step:'))){
+       const [dx,dy]=direction;
+       if((x-h.x)*dx+(y-h.y)*dy>=24)e.edictRead={x:h.x,y:h.y,dx,dy};
+     }
    }
    e.windDuration=attack.wind*(royal?.wind??1)*(token==='heal'?.85:1);e.wind=e.windDuration;
    const confidence=movement.startsWith('step:')?route.confidence:guess.confidence;
    const message=h.smoke>0?'Predicción velada':movement?habit(movement)+' · '+Math.round(confidence*100)+'%':'Observando…';
    if(e.read!==message&&movement)this.emit('sound','adapt');e.read=message;
+ }
+ resolveEdict(){
+   const h=this.hero,e=this.enemy;
+   const read=e.edictRead;
+   e.edictRead=null;
+   const dx=h.x-read.x,dy=h.y-read.y;
+   if(Math.hypot(dx,dy)>=22){
+     this.royalSteps.observe('step:'+sector(dx,dy),dist(h,e),100*this.data.hp/this.maxHp);
+   }
+   if(dx*read.dx+dy*read.dy> -22||e.runes.some(rune=>dist(rune,h)<24))return;
+   e.exposed=1.45;
+   e.recovery=e.exposed;
+   e.guard='';
+   e.read='¡Engañado! Guardia baja';
+   this.emit('sound','adapt');
+   this.notice('¡Engañaste al Rey! Ataca ahora');
  }
  observeRoyalSteps(dt){
    const sample=this.stepSample,h=this.hero;

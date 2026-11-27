@@ -269,7 +269,7 @@ function dismiss(){
 function codex(){
  const m=game.memory,p=m.predict(50,100*game.data.hp/game.maxHp);
  show('codex','Códice del viajero','La memoria de la isla',
-   '<p class="menuLead">El Rey aprende de los encuentros de toda la isla. Cambia la dirección de tus esquivas para confundirlo.</p>'+
+   '<p class="menuLead">El Rey aprende de los encuentros de toda la isla. En la última fase, cambia de dirección cuando sus runas anticipen tu ruta. Si lo engañas, su guardia baja.</p>'+
    '<dl class="menuStats"><div><dt>Acciones vistas</dt><dd>'+m.samples+'</dd></div>'+
    '<div><dt>Predicciones acertadas</dt><dd>'+m.hits+' / '+m.scored+'</dd></div>'+
    '<div class="memoryRead"><dt>Lectura a corta distancia</dt><dd>'+habit(p.action)+'</dd></div></dl>'+
@@ -522,7 +522,8 @@ function hud(){
    $('royalPhase').hidden=!phase;
    if(phase)$('royalPhase').textContent='Fase '+e.phase+' / 3 · '+phase.name;
    const samples=phase?game.memory.samples+game.royalSteps.samples:game.foeMemory.samples;
-   $('prediction').textContent=[samples+' recuerdos',attackCaption(e),e.read].filter(Boolean).join(' · ');
+   $('prediction').textContent=e.exposed>0?'¡Engañado! Contraataque disponible':
+     [samples+' recuerdos',attackCaption(e),e.read].filter(Boolean).join(' · ');
  }
  const key=[d.weapon,d.item,...d.bag,'gear',...d.unlocked].join('/');
  if(key!==icons){
